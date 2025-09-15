@@ -14,6 +14,10 @@ type SnippetPreviewCardProps = {
 export default function SnippetPreviewCard({ snippet }: SnippetPreviewCardProps) {
   const { author, title, code, language } = snippet;
 
+  const authorName = author?.name ?? 'Anonymous';
+  const authorUsername = author?.email?.split('@')[0] ?? 'anonymous';
+  const authorImage = author?.image ?? undefined;
+
   return (
     <div className="w-full h-full p-4 flex flex-col justify-between cursor-pointer group">
       <div className="flex-grow overflow-hidden relative">
@@ -33,10 +37,10 @@ export default function SnippetPreviewCard({ snippet }: SnippetPreviewCardProps)
         <div className="flex items-center justify-between mt-2">
             <div className="flex items-center gap-2">
                 <Avatar className="h-6 w-6">
-                    <AvatarImage src={author.avatar_url} alt={author.full_name} data-ai-hint="developer portrait" />
-                    <AvatarFallback>{author.full_name.charAt(0).toUpperCase()}</AvatarFallback>
+                    <AvatarImage src={authorImage} alt={authorName} data-ai-hint="developer portrait" />
+                    <AvatarFallback>{authorName.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <span className="text-xs text-muted-foreground">{author.username}</span>
+                <span className="text-xs text-muted-foreground">{authorUsername}</span>
             </div>
             <Badge variant="secondary">{language}</Badge>
         </div>
