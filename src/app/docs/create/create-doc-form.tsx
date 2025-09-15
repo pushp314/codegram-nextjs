@@ -10,7 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useTransition, useState } from 'react';
+import { createDocAction } from '@/app/actions';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters.'),
@@ -20,8 +22,9 @@ const formSchema = z.object({
 });
 
 export default function CreateDocForm() {
-    const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, startSubmitting] = useTransition();
   const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -34,15 +37,28 @@ export default function CreateDocForm() {
   });
   
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsSubmitting(true);
-    console.log(values);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toast({
-      title: "Document Ready!",
-      description: "Your document is ready to be published. (Backend functionality not yet implemented)",
+    startSubmitting(async () => {
+        try {
+            await createDocAction({
+                title: values.title,
+                description: values.description,
+                content: values.content,
+                tags: values.tags || '',
+            });
+            toast({
+              title: "Document Published!",
+              description: "Your document is now live for the community.",
+            });
+            router.push('/docs');
+        } catch (error) {
+            console.error(error);
+            toast({
+                variant: 'destructive',
+                title: 'Failed to Publish',
+                description: error instanceof Error ? error.message : 'An unknown error occurred.',
+            });
+        }
     });
-    setIsSubmitting(false);
   }
 
   return (

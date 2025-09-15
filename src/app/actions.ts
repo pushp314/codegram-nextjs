@@ -46,6 +46,27 @@ export async function createSnippetAction(data: { title: string; description: st
   revalidatePath('/');
 }
 
+export async function createDocAction(data: { title: string; description: string; content: string; tags: string; }) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        throw new Error('You must be logged in to create a document.');
+    }
+
+    const tagsArray = data.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+
+    await prisma.document.create({
+        data: {
+            title: data.title,
+            description: data.description,
+            content: data.content,
+            tags: tagsArray,
+            authorId: session.user.id,
+        }
+    });
+
+    revalidatePath('/docs');
+}
+
 export async function toggleLikeAction(snippetId: string) {
     const session = await auth();
     const userId = session?.user?.id;
