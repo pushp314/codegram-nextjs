@@ -26,13 +26,14 @@ import type { Snippet } from '@/lib/types';
 import { toggleLikeAction, toggleSaveAction } from '@/app/actions';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { SnippetDetailSheet } from './snippet-detail-sheet';
 
 type SnippetCardProps = {
   snippet: Snippet;
 };
 
 export default function SnippetCard({ snippet }: SnippetCardProps) {
-  const { author, title, code, language, likes_count, isLiked, isBookmarked, id } = snippet;
+  const { author, title, code, language, likes_count, comments_count, isLiked, isBookmarked, id } = snippet;
 
   const [explanation, setExplanation] = useState('');
   const [isLoadingExplanation, setIsLoadingExplanation] = useState(false);
@@ -42,6 +43,8 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
   
   const [isLikePending, startLikeTransition] = useTransition();
   const [isSavePending, startSaveTransition] = useTransition();
+
+  const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
   
   const { data: session } = useSession();
   const router = useRouter();
@@ -102,6 +105,7 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
   const authorImage = author?.image ?? undefined;
 
   return (
+    <>
     <Card className="flex flex-col rounded-xl">
       <CardHeader>
         <div className="flex items-center gap-3">
@@ -167,9 +171,10 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
             </Button>
           </motion.div>
            <span className="text-sm text-muted-foreground font-medium">{likes_count}</span>
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" onClick={() => setIsDetailSheetOpen(true)}>
             <MessageCircle className="h-5 w-5" />
           </Button>
+           <span className="text-sm text-muted-foreground font-medium">{comments_count}</span>
           <Button 
             variant="ghost" 
             size="icon" 
@@ -219,5 +224,11 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
         <Badge variant="secondary">{language}</Badge>
       </CardFooter>
     </Card>
+    <SnippetDetailSheet
+        snippet={snippet}
+        isOpen={isDetailSheetOpen}
+        onOpenChange={setIsDetailSheetOpen}
+    />
+    </>
   );
 }

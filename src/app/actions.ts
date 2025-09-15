@@ -7,7 +7,7 @@ import {
 } from '@/ai/flows/generate-code-snippet-from-description';
 import { convertCode, type ConvertCodeInput } from '@/ai/flows/convert-code';
 import { auth } from '@/lib/auth';
-import type { Snippet, Document, Bug, User, DocumentComment } from '@/lib/types';
+import type { Snippet, Document, Bug, User, DocumentComment, SnippetComment } from '@/lib/types';
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
@@ -230,6 +230,15 @@ export async function getSnippetsAction({ page = 0, limit = 3, authorId }: { pag
       author: true,
       _count: {
         select: { likes: true, comments: true, saves: true }
+      },
+      comments: {
+        take: 2,
+        orderBy: {
+            createdAt: 'desc'
+        },
+        include: {
+            author: true
+        }
       }
     }
   });
@@ -264,7 +273,8 @@ export async function getSnippetsAction({ page = 0, limit = 3, authorId }: { pag
         saves_count: snippet._count.saves,
         isLiked: userLikes.includes(snippet.id),
         isBookmarked: userSaves.includes(snippet.id),
-        views_count: 1000 // Placeholder
+        views_count: 1000, // Placeholder
+        comments: snippet.comments.map(c => ({...c, author: c.author}))
     };
     return typedSnippet;
   });
@@ -298,6 +308,15 @@ export async function getSavedSnippetsAction({ page = 0, limit = 4, userId }: { 
       author: true,
       _count: {
         select: { likes: true, comments: true, saves: true }
+      },
+       comments: {
+        take: 2,
+        orderBy: {
+            createdAt: 'desc'
+        },
+        include: {
+            author: true
+        }
       }
     }
   });
@@ -325,7 +344,8 @@ export async function getSavedSnippetsAction({ page = 0, limit = 4, userId }: { 
     saves_count: snippet._count.saves,
     isLiked: likedSnippetIds.includes(snippet.id),
     isBookmarked: bookmarkedSnippetIds.includes(snippet.id),
-    views_count: 1000 // Placeholder
+    views_count: 1000, // Placeholder
+    comments: snippet.comments.map(c => ({...c, author: c.author})),
   }));
   
   // Sort snippets by the order they were saved
@@ -347,7 +367,7 @@ export async function getDocumentsAction(): Promise<Document[]> {
             },
         }
     });
-    return documents.map(d => ({...d, likes_count: 0, saves_count: 0, comments_count: d.comments.length, isLiked: false, isSaved: false}));
+    return documents.map(d => ({...d, likes_count: 0, saves_count: 0, comments_count: d.comments.length, isLiked: false, isSaved: false, comments: d.comments}));
 }
 
 export type FullDocument = Document & {
@@ -427,7 +447,8 @@ export async function getDocumentBySlugAction(slug: string): Promise<FullDocumen
         saves_count: document._count.saves,
         comments_count: document._count.comments,
         isLiked,
-        isSaved
+        isSaved,
+        comments: document.comments.map(c => ({...c, author: c.author}))
     };
 }
 
@@ -626,4 +647,43 @@ export async function createDocumentCommentAction(documentId: string, content: s
     
     const path = (await prisma.document.findUnique({where: {id: documentId}, select: {slug: true}}))?.slug;
     if (path) revalidatePath(`/docs/${path}`);
+}
+
+export async function getSnippetCommentsAction(snippetId: string): Promise<SnippetComment[]> {
+    const comments = await prisma.snippetComment.findMany({
+        where: {
+            snippetId,
+        },
+        include: {
+            author: true
+        },
+        orderBy: {
+            createdAt: 'desc'
+        }
+    });
+    return comments.map(c => ({...c, author: c.author}));
+}
+
+export async function addSnippetCommentAction(snippetId: string, content: string) {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+        throw new Error('You must be logged in to comment.');
+    }
+    if (content.trim().length === 0) {
+        throw new Error('Comment cannot be empty.');
+    }
+
+    await prisma.snippetComment.create({
+        data: {
+            content,
+            snippetId,
+            authorId: userId,
+        }
+    });
+    
+    revalidatePath('/');
+    revalidatePath(`/explore`);
+    revalidatePath(`/profile`);
+    revalidatePath('/saved');
 }

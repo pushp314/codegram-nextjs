@@ -11,27 +11,29 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  bio           String?   @db.Text
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  name            String?
+  email           String?   @unique
+  emailVerified   DateTime?
+  image           String?
+  bio             String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  accounts   Account[]
-  sessions   Session[]
-  snippets   Snippet[]
-  documents  Document[]
-  comments   Comment[]
-  likes      Like[]
-  saves      Save[]
-  bugs       Bug[]
-  bugUpvotes BugUpvote[]
-
-  followers Follows[] @relation("following")
-  following Follows[] @relation("follower")
+  accounts        Account[]
+  sessions        Session[]
+  snippets        Snippet[]
+  documents       Document[]
+  comments        Comment[]
+  documentComments DocumentComment[]
+  likes           Like[]
+  documentLikes   DocumentLike[]
+  saves           Save[]
+  documentSaves   DocumentSave[]
+  bugs            Bug[]
+  bugUpvotes      BugUpvote[]
+  followers       Follows[] @relation("following")
+  following       Follows[] @relation("follower")
 }
 
 model Account {
@@ -69,6 +71,7 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+// Many-to-many join table for followers
 model Follows {
   followerId  String
   followingId String
@@ -77,7 +80,6 @@ model Follows {
 
   @@id([followerId, followingId])
 }
-
 
 model Snippet {
   id          String    @id @default(cuid())
@@ -89,30 +91,33 @@ model Snippet {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  comments Comment[]
-  likes    Like[]
-  saves    Save[]
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments    Comment[]
+  likes       Like[]
+  saves       Save[]
 }
 
 model Document {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   title       String
-  slug        String   @unique
+  slug        String    @unique
   description String
-  content     String   @db.Text
+  content     String    @db.Text
   tags        String[]
   authorId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author           User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments         DocumentComment[]
+  likes            DocumentLike[]
+  saves            DocumentSave[]
 }
 
 model Bug {
   id        String      @id @default(cuid())
   content   String
-  status    String      @default("OPEN")
+  status    String      @default("OPEN") // e.g., OPEN, IN_PROGRESS, CLOSED
   authorId  String
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
@@ -132,6 +137,19 @@ model Comment {
   author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
 }
 
+// Comments for Documents
+model DocumentComment {
+  id         String   @id @default(cuid())
+  content    String
+  documentId String
+  authorId   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+// Join table for Snippet Likes
 model Like {
   id        String   @id @default(cuid())
   snippetId String
@@ -144,6 +162,20 @@ model Like {
   @@unique([userId, snippetId], name: "userId_snippetId")
 }
 
+// Join table for Document Likes
+model DocumentLike {
+  id         String   @id @default(cuid())
+  documentId String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentId])
+}
+
+// Join table for Snippet Saves/Bookmarks
 model Save {
   id        String   @id @default(cuid())
   snippetId String
@@ -156,6 +188,20 @@ model Save {
   @@unique([userId, snippetId], name: "userId_snippetId")
 }
 
+// Join table for Document Saves/Bookmarks
+model DocumentSave {
+  id         String   @id @default(cuid())
+  documentId String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentId])
+}
+
+// Join table for Bug Upvotes
 model BugUpvote {
   id        String   @id @default(cuid())
   bugId     String
