@@ -102,12 +102,12 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
       <CardHeader>
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={author.image ?? undefined} alt={author.name ?? 'User'} />
-            <AvatarFallback>{author.name?.charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={author?.image ?? undefined} alt={author?.name ?? 'User'} />
+            <AvatarFallback>{author?.name?.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-semibold">{author.name}</p>
-            <p className="text-sm text-muted-foreground">@{author.email?.split('@')[0]}</p>
+            <p className="font-semibold">{author?.name}</p>
+            <p className="text-sm text-muted-foreground">@{author?.email?.split('@')[0]}</p>
           </div>
         </div>
          <CardTitle className="font-headline text-xl pt-4">{title}</CardTitle>

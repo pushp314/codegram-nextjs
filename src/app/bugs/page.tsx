@@ -45,6 +45,7 @@ export default function BugsPage() {
                 });
                 setContent('');
                 setOpen(false);
+                router.refresh();
             } catch (error) {
                 console.error(error);
                 toast({
