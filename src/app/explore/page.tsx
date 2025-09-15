@@ -1,98 +1,49 @@
 
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { LayoutGrid } from "@/components/ui/layout-grid";
-import { Button } from "@/components/ui/button";
+import { getSnippetsAction } from "../actions";
+import type { Snippet } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
+import SnippetPreviewCard from "@/components/snippet-preview-card";
 
 export default function ExplorePage() {
-  return (
-    <div className="h-screen w-full">
-      <LayoutGrid cards={cards} />
-    </div>
-  );
+    const [snippets, setSnippets] = useState<Snippet[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadSnippets = async () => {
+            setLoading(true);
+            const { snippets: fetchedSnippets } = await getSnippetsAction({ page: 0, limit: 12 });
+            setSnippets(fetchedSnippets);
+            setLoading(false);
+        };
+        loadSnippets();
+    }, []);
+
+    const cards = snippets.map((snippet, index) => ({
+        id: snippet.id,
+        className: (index % 5 === 0 || index % 5 === 3) ? "md:col-span-2" : "col-span-1",
+        thumbnail: <SnippetPreviewCard snippet={snippet} />,
+        snippet: snippet,
+    }));
+
+    const skeletonCards = Array(12).fill(0).map((_, index) => ({
+        id: `skeleton-${index}`,
+        className: (index % 5 === 0 || index % 5 === 3) ? "md:col-span-2" : "col-span-1",
+        thumbnail: <Skeleton className="w-full h-full min-h-[300px]" />,
+        snippet: {} as Snippet,
+    }));
+
+    return (
+        <div className="w-full">
+            <div className="text-center mb-12">
+                <h1 className="font-headline text-4xl md:text-5xl mb-4">Explore Snippets</h1>
+                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                    Discover a world of code. Click on any snippet to see the magic happen.
+                </p>
+            </div>
+            {loading ? <LayoutGrid cards={skeletonCards} /> : <LayoutGrid cards={cards} />}
+        </div>
+    );
 }
-
-const SkeletonOne = () => {
-  return (
-    <div>
-      <p className="font-bold md:text-4xl text-xl text-white">
-        Responsive Navbar with Tailwind
-      </p>
-      <p className="font-normal text-base my-4 max-w-lg text-neutral-200">
-        A clean and responsive navigation bar that adapts to mobile screens, built with Tailwind CSS.
-      </p>
-      <Button>View Snippet</Button>
-    </div>
-  );
-};
-
-const SkeletonTwo = () => {
-  return (
-    <div>
-      <p className="font-bold md:text-4xl text-xl text-white">
-        Python Web Scraper
-      </p>
-      <p className="font-normal text-base my-4 max-w-lg text-neutral-200">
-        A simple yet powerful web scraper built with Python and BeautifulSoup to extract data from websites.
-      </p>
-      <Button>View Snippet</Button>
-    </div>
-  );
-};
-const SkeletonThree = () => {
-  return (
-    <div>
-      <p className="font-bold md:text-4xl text-xl text-white">
-        Async Data Fetching in Rust
-      </p>
-      <p className="font-normal text-base my-4 max-w-lg text-neutral-200">
-        Learn how to perform asynchronous data fetching in Rust using the Tokio runtime and `reqwest` library.
-      </p>
-       <Button>View Snippet</Button>
-    </div>
-  );
-};
-const SkeletonFour = () => {
-  return (
-    <div>
-      <p className="font-bold md:text-4xl text-xl text-white">
-        3D Scene with Three.js
-      </p>
-      <p className="font-normal text-base my-4 max-w-lg text-neutral-200">
-        Create a stunning 3D scene with lighting, shadows, and interactive elements using Three.js and WebGL.
-      </p>
-       <Button>View Snippet</Button>
-    </div>
-  );
-};
-
-const cards = [
-  {
-    id: 1,
-    content: <SkeletonOne />,
-    className: "md:col-span-2",
-    thumbnail:
-      "https://picsum.photos/seed/explore1/600/400",
-  },
-  {
-    id: 2,
-    content: <SkeletonTwo />,
-    className: "col-span-1",
-    thumbnail:
-      "https://picsum.photos/seed/explore2/600/400",
-  },
-  {
-    id: 3,
-    content: <SkeletonThree />,
-    className: "col-span-1",
-    thumbnail:
-      "https://picsum.photos/seed/explore3/600/400",
-  },
-  {
-    id: 4,
-    content: <SkeletonFour />,
-    className: "md:col-span-2",
-    thumbnail:
-      "https://picsum.photos/seed/explore4/600/400",
-  },
-];
