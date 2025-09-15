@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Code, FileText, Home, Menu, Settings, User, Compass, Bookmark, Bug, Bot, ShoppingCart, GitFork } from 'lucide-react';
+import { Code, FileText, Home, Menu, Settings, User, Compass, Bookmark, Bug, Bot, ShoppingCart, GitFork, Users } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/explore', icon: Compass, label: 'Explore' },
   { href: '/components', icon: ShoppingCart, label: 'Marketplace' },
   { href: '/docs', icon: FileText, label: 'Docs' },
+  { href: '/community', icon: Users, label: 'Community' },
   { href: '/bugs', icon: Bug, label: 'Bugs' },
   { href: '/playground', icon: Code, label: 'Playground' },
   { href: '/convert', icon: GitFork, label: 'Convert' },

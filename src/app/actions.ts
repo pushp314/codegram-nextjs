@@ -7,7 +7,7 @@ import {
 } from '@/ai/flows/generate-code-snippet-from-description';
 import { convertCode, type ConvertCodeInput } from '@/ai/flows/convert-code';
 import { auth } from '@/lib/auth';
-import type { Snippet, Document, Bug } from '@/lib/types';
+import type { Snippet, Document, Bug, User } from '@/lib/types';
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
@@ -131,6 +131,7 @@ export async function toggleLikeAction(snippetId: string) {
     revalidatePath(`/explore`);
     revalidatePath(`/profile`);
     revalidatePath('/saved');
+    revalidatePath('/community');
 }
 
 export async function toggleSaveAction(snippetId: string) {
@@ -214,6 +215,7 @@ export async function toggleFollowAction(authorId: string) {
 
     revalidatePath(`/profile`);
     revalidatePath(`/docs`);
+    revalidatePath('/community');
 }
 
 
@@ -456,4 +458,53 @@ export async function toggleBugUpvoteAction(bugId: string) {
         });
     }
     revalidatePath('/bugs');
+}
+
+export async function getUsersAction({ query }: { query?: string }): Promise<(User & { isFollowing: boolean, followersCount: number })[]> {
+    const session = await auth();
+    const currentUserId = session?.user?.id;
+
+    const users = await prisma.user.findMany({
+        where: {
+            NOT: {
+                id: currentUserId,
+            },
+            name: {
+                contains: query,
+                mode: 'insensitive',
+            }
+        },
+        include: {
+            _count: {
+                select: {
+                    followers: true,
+                }
+            }
+        }
+    });
+
+    if (!currentUserId) {
+        return users.map(user => ({
+            ...user,
+            isFollowing: false,
+            followersCount: user._count.followers
+        }));
+    }
+
+    const following = await prisma.follows.findMany({
+        where: {
+            followerId: currentUserId,
+            followingId: {
+                in: users.map(u => u.id)
+            }
+        }
+    });
+    
+    const followingIds = following.map(f => f.followingId);
+
+    return users.map(user => ({
+        ...user,
+        isFollowing: followingIds.includes(user.id),
+        followersCount: user._count.followers
+    }));
 }

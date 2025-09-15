@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Code, FileText, Home, Settings, User, Compass, Bookmark, Bug, Bot, ShoppingCart, GitFork } from 'lucide-react';
+import { Code, FileText, Home, Settings, User, Compass, Bookmark, Bug, Bot, ShoppingCart, GitFork, Users } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from './theme-toggle';
@@ -13,6 +13,7 @@ const navItems = [
   { href: '/explore', icon: Compass, label: 'Explore' },
   { href: '/components', icon: ShoppingCart, label: 'Marketplace' },
   { href: '/docs', icon: FileText, label: 'Docs' },
+  { href: '/community', icon: Users, label: 'Community' },
   { href: '/bugs', icon: Bug, label: 'Bugs' },
   { href: '/playground', icon: Code, label: 'Playground' },
   { href: '/convert', icon: GitFork, label: 'Convert' },
