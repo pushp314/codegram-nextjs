@@ -2,8 +2,11 @@
 import NextAuth from 'next-auth';
 import GitHub from 'next-auth/providers/github';
 import Google from 'next-auth/providers/google';
+import { PrismaAdapter } from '@auth/prisma-adapter';
+import prisma from './db';
 
 const config = {
+  adapter: PrismaAdapter(prisma),
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -18,9 +21,9 @@ const config = {
     signIn: '/login',
   },
   callbacks: {
-    async session({ session, token }: { session: any; token: any }) {
-      if (token?.sub && session.user) {
-        session.user.id = token.sub;
+    async session({ session, user }: { session: any; user: any }) {
+      if (user?.id && session.user) {
+        session.user.id = user.id;
       }
       return session;
     },

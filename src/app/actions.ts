@@ -6,8 +6,8 @@ import {
 } from '@/ai/flows/generate-code-snippet-from-description';
 import { convertCode, type ConvertCodeInput } from '@/ai/flows/convert-code';
 import { auth } from '@/lib/auth';
-import { mockSnippets } from '@/lib/mock-data';
-import { Snippet } from '@/lib/types';
+import type { Snippet } from '@/lib/types';
+import prisma from '@/lib/db';
 
 
 export async function generateSnippetAction(input: GenerateCodeSnippetInput) {
@@ -27,16 +27,39 @@ export async function convertCodeAction(input: ConvertCodeInput) {
 }
 
 export async function getSnippetsAction({ page = 0, limit = 3 }: { page: number; limit: number }): Promise<{ snippets: Snippet[], hasMore: boolean }> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 800));
-
-  const sortedSnippets = [...mockSnippets].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const session = await auth();
+  const userId = session?.user?.id;
   
-  const startIndex = page * limit;
-  const endIndex = startIndex + limit;
-  
-  const pageData = sortedSnippets.slice(startIndex, endIndex);
-  const hasMore = endIndex < sortedSnippets.length;
+  const snippets = await prisma.snippet.findMany({
+    skip: page * limit,
+    take: limit,
+    orderBy: {
+      createdAt: 'desc'
+    },
+    include: {
+      author: true,
+      _count: {
+        select: { likes: true, comments: true }
+      }
+    }
+  });
 
-  return { snippets: pageData, hasMore };
+  const totalSnippets = await prisma.snippet.count();
+  const hasMore = (page * limit) + limit < totalSnippets;
+
+  const snippetsWithLikes = snippets.map(snippet => {
+    // This is a placeholder. In a real app, you'd query the Like model.
+    const typedSnippet: Snippet = {
+        ...snippet,
+        likes_count: snippet._count.likes,
+        comments_count: snippet._count.comments,
+        isLiked: false, // You would check if userId has liked this snippet
+        isBookmarked: false, // You would check if userId has saved this snippet
+        views_count: 1000 // Placeholder
+    };
+    return typedSnippet;
+  });
+
+
+  return { snippets: snippetsWithLikes, hasMore };
 }
