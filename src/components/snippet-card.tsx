@@ -27,6 +27,7 @@ import { toggleLikeAction, toggleSaveAction } from '@/app/actions';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { SnippetDetailSheet } from './snippet-detail-sheet';
+import Link from 'next/link';
 
 type SnippetCardProps = {
   snippet: Snippet;
@@ -109,14 +110,16 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
     <Card className="flex flex-col rounded-xl">
       <CardHeader>
         <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={authorImage} alt={authorName} />
-            <AvatarFallback>{authorName.charAt(0).toUpperCase()}</AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-semibold">{authorName}</p>
-            <p className="text-sm text-muted-foreground">@{authorEmail}</p>
-          </div>
+          <Link href={`/profile/${author.id}`} className="flex items-center gap-3 group">
+            <Avatar className="h-10 w-10">
+                <AvatarImage src={authorImage} alt={authorName} />
+                <AvatarFallback>{authorName.charAt(0).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div>
+                <p className="font-semibold group-hover:text-primary transition-colors">{authorName}</p>
+                <p className="text-sm text-muted-foreground">@{authorEmail}</p>
+            </div>
+          </Link>
         </div>
          <CardTitle className="font-headline text-xl pt-4">{title}</CardTitle>
       </CardHeader>

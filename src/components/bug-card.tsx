@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from './ui/badge';
 import { MessageCircle } from 'lucide-react';
 import BugCardActions from './bug-card-actions';
+import Link from 'next/link';
 
 type BugCardProps = {
   bugId: string;
+  authorId: string;
   authorName: string;
   authorImage: string;
   authorImageHint: string;
@@ -21,6 +23,7 @@ type BugCardProps = {
 
 export default function BugCard({
   bugId,
+  authorId,
   authorName,
   authorImage,
   authorImageHint,
@@ -35,13 +38,17 @@ export default function BugCard({
   return (
     <Card>
       <CardHeader className="flex-row gap-4 items-start">
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={authorImage} alt={authorName} data-ai-hint={authorImageHint} />
-          <AvatarFallback>{authorName.charAt(0).toUpperCase()}</AvatarFallback>
-        </Avatar>
+        <Link href={`/profile/${authorId}`}>
+            <Avatar className="h-10 w-10">
+            <AvatarImage src={authorImage} alt={authorName} data-ai-hint={authorImageHint} />
+            <AvatarFallback>{authorName.charAt(0).toUpperCase()}</AvatarFallback>
+            </Avatar>
+        </Link>
         <div className="flex-1">
           <div className="flex items-baseline justify-between">
-            <p className="font-semibold">{authorName}</p>
+             <Link href={`/profile/${authorId}`} className="group">
+                <p className="font-semibold group-hover:text-primary transition-colors">{authorName}</p>
+             </Link>
             <p className="text-xs text-muted-foreground">{timestamp}</p>
           </div>
           <p className="text-sm text-muted-foreground">@{authorName.toLowerCase().replace(/\s/g, '')}</p>

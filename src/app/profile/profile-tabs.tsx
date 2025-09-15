@@ -10,7 +10,6 @@ import { getSnippetsAction, getSavedSnippetsAction, getDocumentsByAuthorAction, 
 import { useEffect, useState, useCallback } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useSession } from 'next-auth/react';
 import { DocCard } from '@/components/doc-card';
 import { cn } from '@/lib/utils';
 
@@ -165,8 +164,7 @@ function DocList({ fetcher, authorId }: { fetcher: (params: { page: number; limi
     );
 }
 
-export default function ProfileTabs({ initialSnippets, initialDocuments, authorId }: { initialSnippets: { snippets: Snippet[], hasMore: boolean }, initialDocuments: { documents: Document[], hasMore: boolean }, authorId: string }) {
-    const { data: session } = useSession();
+export default function ProfileTabs({ initialSnippets, initialDocuments, authorId, isCurrentUserProfile }: { initialSnippets: { snippets: Snippet[], hasMore: boolean }, initialDocuments: { documents: Document[], hasMore: boolean }, authorId: string, isCurrentUserProfile: boolean }) {
     const [userSnippets, setUserSnippets] = useState<Snippet[]>(initialSnippets.snippets);
     const [userSnippetsPage, setUserSnippetsPage] = useState(0);
     const [userSnippetsLoading, setUserSnippetsLoading] = useState(false);
@@ -214,8 +212,6 @@ export default function ProfileTabs({ initialSnippets, initialDocuments, authorI
     }, [userDocsInView, loadMoreUserDocs]);
 
 
-    const isCurrentUserProfile = session?.user?.id === authorId;
-
     const fetchSavedSnippets = useCallback(async (params: { page: number, limit: number, userId: string }) => {
         return getSavedSnippetsAction(params);
     }, []);
@@ -236,7 +232,7 @@ export default function ProfileTabs({ initialSnippets, initialDocuments, authorI
                     <EmptyState 
                         icon={Code} 
                         title="No Snippets Yet" 
-                        description="You haven't posted any snippets yet." 
+                        description="This user hasn't posted any snippets yet." 
                     />
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -257,7 +253,7 @@ export default function ProfileTabs({ initialSnippets, initialDocuments, authorI
                     <EmptyState 
                         icon={FileText} 
                         title="No Docs Yet" 
-                        description="You haven't posted any docs yet." 
+                        description="This user hasn't posted any docs yet." 
                     />
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

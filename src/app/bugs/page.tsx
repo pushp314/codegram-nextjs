@@ -25,6 +25,7 @@ export default async function BugsPage() {
           <BugCard
             key={bug.id}
             bugId={bug.id}
+            authorId={bug.author.id}
             authorName={bug.author.name || 'Anonymous'}
             authorImage={bug.author.image || ''}
             authorImageHint="developer portrait"

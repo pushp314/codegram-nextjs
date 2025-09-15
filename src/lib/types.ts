@@ -1,8 +1,17 @@
 
+
 import type { User as PrismaUser, Snippet as PrismaSnippet, Document as PrismaDocument, Bug as PrismaBug, DocumentComment as PrismaDocumentComment, SnippetComment as PrismaSnippetComment, Notification as PrismaNotification, NotificationType, Component as PrismaComponent } from '@prisma/client';
 
 // This is the user type returned from Prisma, but without sensitive fields
 export type User = Omit<PrismaUser, 'emailVerified'>;
+export type UserWithFollows = User & {
+    followers: { follower: User }[];
+    following: { following: User }[];
+    _count: {
+        followers: number;
+        following: number;
+    }
+}
 
 export type SnippetComment = PrismaSnippetComment & { author: User };
 
@@ -15,6 +24,10 @@ export type Snippet = Omit<PrismaSnippet, 'authorId'> & {
   isLiked: boolean;
   isBookmarked: boolean;
   comments: SnippetComment[];
+};
+
+export type FullDocument = Document & {
+    isFollowed: boolean;
 };
 
 export type Document = Omit<PrismaDocument, 'authorId'> & {

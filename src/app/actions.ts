@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import {
@@ -7,7 +8,7 @@ import {
 } from '@/ai/flows/generate-code-snippet-from-description';
 import { convertCode, type ConvertCodeInput } from '@/ai/flows/convert-code';
 import { auth } from '@/lib/auth';
-import type { Snippet, Document, Bug, User, DocumentComment, SnippetComment, Notification, Component } from '@/lib/types';
+import type { Snippet, Document, Bug, User, DocumentComment, SnippetComment, Notification, Component, UserWithFollows } from '@/lib/types';
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
@@ -76,6 +77,7 @@ export async function createDocAction(data: { title: string; description: string
     });
 
     revalidatePath('/docs');
+    revalidatePath(`/profile/${session.user.id}`);
     return { slug };
 }
 
@@ -136,7 +138,7 @@ export async function toggleLikeAction(snippetId: string) {
     }
     revalidatePath('/');
     revalidatePath(`/explore`);
-    revalidatePath(`/profile`);
+    revalidatePath(`/profile/${snippet.authorId}`);
     revalidatePath('/saved');
 }
 
@@ -156,6 +158,8 @@ export async function toggleSaveAction(snippetId: string) {
         }
     });
 
+    const snippet = await prisma.snippet.findUnique({ where: { id: snippetId }, select: { authorId: true } });
+
     if (save) {
         await prisma.save.delete({ where: { id: save.id, } });
     } else {
@@ -163,7 +167,7 @@ export async function toggleSaveAction(snippetId: string) {
     }
     revalidatePath('/');
     revalidatePath(`/explore`);
-    revalidatePath(`/profile`);
+    if(snippet?.authorId) revalidatePath(`/profile/${snippet.authorId}`);
     revalidatePath('/saved');
 }
 
@@ -216,7 +220,8 @@ export async function toggleFollowAction(authorId: string) {
         });
     }
 
-    revalidatePath(`/profile`);
+    revalidatePath(`/profile/${authorId}`);
+    revalidatePath(`/profile/${currentUserId}`);
     revalidatePath(`/docs`);
     revalidatePath('/community');
 }
@@ -376,7 +381,7 @@ export async function getDocumentsAction(): Promise<Document[]> {
             },
         }
     });
-    return documents.map(d => ({...d, likes_count: 0, saves_count: 0, comments_count: d.comments.length, isLiked: false, isSaved: false, comments: d.comments}));
+    return documents.map(d => ({...d, likes_count: 0, saves_count: 0, comments_count: d.comments.length, isLiked: false, isSaved: false, comments: d.comments.map(c => ({...c, author: c.author})) }));
 }
 
 export type FullDocument = Document & {
@@ -699,7 +704,7 @@ export async function addSnippetCommentAction(snippetId: string, content: string
     
     revalidatePath('/');
     revalidatePath(`/explore`);
-    revalidatePath(`/profile`);
+    revalidatePath(`/profile/${snippet.authorId}`);
     revalidatePath('/saved');
     revalidatePath(`/snippets/${snippetId}`);
 }
@@ -834,4 +839,48 @@ export async function createComponentAction(data: { name: string; description: s
 
     revalidatePath('/components');
     return { slug };
+}
+
+export async function getUserProfile(userId: string): Promise<(UserWithFollows & { isFollowing: boolean }) | null> {
+    const session = await auth();
+    const currentUserId = session?.user?.id;
+
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+            followers: {
+                select: { follower: true }
+            },
+            following: {
+                select: { following: true }
+            },
+            _count: {
+                select: {
+                    snippets: true,
+                    documents: true,
+                    followers: true,
+                    following: true,
+                }
+            }
+        }
+    });
+
+    if (!user) {
+        return null;
+    }
+
+    let isFollowing = false;
+    if (currentUserId && currentUserId !== userId) {
+        const follow = await prisma.follows.findUnique({
+            where: {
+                followerId_followingId: {
+                    followerId: currentUserId,
+                    followingId: userId,
+                },
+            },
+        });
+        isFollowing = !!follow;
+    }
+
+    return { ...user, isFollowing };
 }
