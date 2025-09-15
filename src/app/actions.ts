@@ -687,3 +687,78 @@ export async function addSnippetCommentAction(snippetId: string, content: string
     revalidatePath(`/profile`);
     revalidatePath('/saved');
 }
+
+
+export async function getDocumentsByAuthorAction({ page = 0, limit = 4, authorId }: { page: number; limit: number, authorId: string }): Promise<{ documents: Document[], hasMore: boolean }> {
+  const documents = await prisma.document.findMany({
+    where: { authorId },
+    skip: page * limit,
+    take: limit,
+    orderBy: {
+      createdAt: 'desc'
+    },
+    include: {
+      author: true,
+      _count: {
+        select: { likes: true, saves: true, comments: true }
+      },
+    }
+  });
+
+  const totalDocs = await prisma.document.count({ where: { authorId } });
+  const hasMore = (page * limit) + limit < totalDocs;
+  
+  const docsWithData: Document[] = documents.map(doc => ({
+    ...doc,
+    author: doc.author,
+    likes_count: doc._count.likes,
+    saves_count: doc._count.saves,
+    comments_count: doc._count.comments,
+    isLiked: false, // This data is not available in this context
+    isSaved: false, // This data is not available in this context
+    comments: []
+  }));
+
+  return { documents: docsWithData, hasMore };
+}
+
+
+export async function getSavedDocumentsAction({ page = 0, limit = 4, userId }: { page: number; limit: number, userId: string }): Promise<{ documents: Document[], hasMore: boolean }> {
+  const saved = await prisma.documentSave.findMany({
+    where: { userId },
+    select: { documentId: true },
+    orderBy: { createdAt: 'desc' },
+    skip: page * limit,
+    take: limit,
+  });
+
+  const docIds = saved.map(s => s.documentId);
+
+  const documents = await prisma.document.findMany({
+    where: { id: { in: docIds } },
+    include: {
+      author: true,
+      _count: {
+        select: { likes: true, saves: true, comments: true }
+      },
+    }
+  });
+
+  const totalSaved = await prisma.documentSave.count({ where: { userId } });
+  const hasMore = (page * limit) + limit < totalSaved;
+
+  const docsWithData: Document[] = documents.map(doc => ({
+    ...doc,
+    author: doc.author,
+    likes_count: doc._count.likes,
+    saves_count: doc._count.saves,
+    comments_count: doc._count.comments,
+    isLiked: false, // Placeholder
+    isSaved: true, // It's a saved doc
+    comments: []
+  }));
+  
+  const sortedDocs = docsWithData.sort((a, b) => docIds.indexOf(a.id) - docIds.indexOf(b.id));
+
+  return { documents: sortedDocs, hasMore };
+}

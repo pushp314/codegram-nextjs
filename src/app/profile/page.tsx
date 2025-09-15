@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { getSnippetsAction } from '../actions';
+import { getSnippetsAction, getDocumentsByAuthorAction } from '../actions';
 import ProfileTabs from './profile-tabs';
 import prisma from '@/lib/db';
 
@@ -25,6 +25,7 @@ async function getProfileStats(userId: string) {
             _count: {
                 select: { 
                     snippets: true,
+                    documents: true,
                     followers: true,
                     following: true,
                 }
@@ -35,6 +36,7 @@ async function getProfileStats(userId: string) {
     if (!userWithCounts) {
         return {
             snippets: 0,
+            documents: 0,
             followers: 0,
             following: 0,
         };
@@ -42,6 +44,7 @@ async function getProfileStats(userId: string) {
     
     return {
         snippets: userWithCounts._count.snippets,
+        documents: userWithCounts._count.documents,
         followers: userWithCounts._count.followers,
         following: userWithCounts._count.following,
     };
@@ -56,8 +59,9 @@ export default async function ProfilePage() {
   }
 
   const { user } = session;
-  const { snippets, followers, following } = await getProfileStats(user.id);
+  const { snippets, documents, followers, following } = await getProfileStats(user.id);
   const initialSnippets = await getSnippetsAction({ page: 0, limit: 4, authorId: user.id });
+  const initialDocuments = await getDocumentsByAuthorAction({ page: 0, limit: 4, authorId: user.id });
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8">
@@ -109,6 +113,10 @@ export default async function ProfilePage() {
                     <p className="text-xs text-muted-foreground">Snippets</p>
                 </div>
                 <div className="text-center">
+                    <p className="font-bold text-xl">{documents}</p>
+                    <p className="text-xs text-muted-foreground">Docs</p>
+                </div>
+                <div className="text-center">
                     <p className="font-bold text-xl">{followers}</p>
                     <p className="text-xs text-muted-foreground">Followers</p>
                 </div>
@@ -118,7 +126,7 @@ export default async function ProfilePage() {
                 </div>
             </div>
             
-            <ProfileTabs initialSnippets={initialSnippets} authorId={user.id} />
+            <ProfileTabs initialSnippets={initialSnippets} initialDocuments={initialDocuments} authorId={user.id} />
 
         </CardContent>
       </Card>
