@@ -7,7 +7,7 @@ import {
 } from '@/ai/flows/generate-code-snippet-from-description';
 import { convertCode, type ConvertCodeInput } from '@/ai/flows/convert-code';
 import { auth } from '@/lib/auth';
-import type { Snippet, Document, Bug, User, DocumentComment, SnippetComment, Notification } from '@/lib/types';
+import type { Snippet, Document, Bug, User, DocumentComment, SnippetComment, Notification, Component } from '@/lib/types';
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
@@ -813,4 +813,25 @@ export async function markNotificationsAsReadAction(userId: string) {
         data: { read: true },
     });
     revalidatePath('/any'); // A generic path to trigger revalidation
+}
+
+export async function createComponentAction(data: { name: string; description: string; code: string; }) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        throw new Error('You must be logged in to create a component.');
+    }
+    const slug = slugify(data.name);
+
+    await prisma.component.create({
+        data: {
+            name: data.name,
+            slug,
+            description: data.description,
+            code: data.code,
+            authorId: session.user.id,
+        }
+    });
+
+    revalidatePath('/components');
+    return { slug };
 }

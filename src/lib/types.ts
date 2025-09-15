@@ -1,5 +1,5 @@
 
-import type { User as PrismaUser, Snippet as PrismaSnippet, Document as PrismaDocument, Bug as PrismaBug, DocumentComment as PrismaDocumentComment, SnippetComment as PrismaSnippetComment, Notification as PrismaNotification, NotificationType } from '@prisma/client';
+import type { User as PrismaUser, Snippet as PrismaSnippet, Document as PrismaDocument, Bug as PrismaBug, DocumentComment as PrismaDocumentComment, SnippetComment as PrismaSnippetComment, Notification as PrismaNotification, NotificationType, Component as PrismaComponent } from '@prisma/client';
 
 // This is the user type returned from Prisma, but without sensitive fields
 export type User = Omit<PrismaUser, 'emailVerified'>;
@@ -44,21 +44,8 @@ export type Notification = Omit<PrismaNotification, 'recipientId' | 'originatorI
 export type { NotificationType };
 
 
-export interface Component {
-  slug: string;
-  name: string;
-  description: string;
-  image: string;
-  imageHint: string;
-  author: {
-    name: string;
-    username: string;
-    avatar: string;
-    avatarHint: string;
-  };
-  stats: {
-    likes: string;
-    saves: string;
-  };
-  code: string;
+export type Component = Omit<PrismaComponent, 'authorId'> & {
+  author: User;
+  likes_count: number; // Placeholder
+  saves_count: number; // Placeholder
 }
