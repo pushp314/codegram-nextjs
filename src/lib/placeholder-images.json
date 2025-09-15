@@ -1,0 +1,16 @@
+{
+  "placeholderImages": [
+    {
+      "id": "ada-lovelace-avatar",
+      "description": "Avatar for Ada Lovelace",
+      "imageUrl": "https://picsum.photos/seed/ada/40/40",
+      "imageHint": "woman portrait"
+    },
+    {
+      "id": "grace-hopper-avatar",
+      "description": "Avatar for Grace Hopper",
+      "imageUrl": "https://picsum.photos/seed/grace/40/40",
+      "imageHint": "woman developer"
+    }
+  ]
+}
