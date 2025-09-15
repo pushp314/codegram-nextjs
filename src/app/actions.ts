@@ -52,6 +52,7 @@ export async function createSnippetAction(data: { title: string; description: st
   });
 
   revalidatePath('/');
+  revalidatePath('/profile');
 }
 
 export async function createDocAction(data: { title: string; description: string; content: string; tags: string; }) {
@@ -128,6 +129,7 @@ export async function toggleLikeAction(snippetId: string) {
     }
     revalidatePath('/');
     revalidatePath(`/explore`);
+    revalidatePath(`/profile`);
 }
 
 export async function toggleSaveAction(snippetId: string) {
@@ -165,6 +167,7 @@ export async function toggleSaveAction(snippetId: string) {
     }
     revalidatePath('/');
     revalidatePath(`/explore`);
+    revalidatePath(`/profile`);
 }
 
 
@@ -225,6 +228,68 @@ export async function getSnippetsAction({ page = 0, limit = 3, authorId }: { pag
   });
 
   return { snippets: snippetsWithLikes, hasMore };
+}
+
+
+export async function getSavedSnippetsAction({ page = 0, limit = 4, userId }: { page: number; limit: number, userId: string }): Promise<{ snippets: Snippet[], hasMore: boolean }> {
+  const session = await auth();
+  const currentUserId = session?.user?.id;
+  if (!currentUserId || currentUserId !== userId) {
+    return { snippets: [], hasMore: false };
+  }
+
+  const saved = await prisma.save.findMany({
+    where: { userId },
+    select: { snippetId: true },
+    orderBy: { createdAt: 'desc' },
+    skip: page * limit,
+    take: limit,
+  });
+  
+  const snippetIds = saved.map(s => s.snippetId);
+
+  const snippets = await prisma.snippet.findMany({
+    where: {
+      id: { in: snippetIds }
+    },
+    include: {
+      author: true,
+      _count: {
+        select: { likes: true, comments: true, saves: true }
+      }
+    }
+  });
+  
+  const totalSaved = await prisma.save.count({ where: { userId } });
+  const hasMore = (page * limit) + limit < totalSaved;
+
+  const userLikes = await prisma.like.findMany({
+    where: { userId, snippetId: { in: snippetIds } },
+    select: { snippetId: true }
+  });
+  const likedSnippetIds = userLikes.map(l => l.snippetId);
+  
+  const savedSnippetIds = await prisma.save.findMany({
+      where: { userId, snippetId: { in: snippetIds } },
+      select: { snippetId: true }
+  });
+  const bookmarkedSnippetIds = savedSnippetIds.map(s => s.snippetId);
+
+  const snippetsWithData: Snippet[] = snippets.map(snippet => ({
+    ...snippet,
+    author: snippet.author,
+    likes_count: snippet._count.likes,
+    comments_count: snippet._count.comments,
+    saves_count: snippet._count.saves,
+    isLiked: likedSnippetIds.includes(snippet.id),
+    isBookmarked: bookmarkedSnippetIds.includes(snippet.id),
+    views_count: 1000 // Placeholder
+  }));
+  
+  // Sort snippets by the order they were saved
+  const sortedSnippets = snippetsWithData.sort((a, b) => snippetIds.indexOf(a.id) - snippetIds.indexOf(b.id));
+
+  return { snippets: sortedSnippets, hasMore };
 }
 
 
