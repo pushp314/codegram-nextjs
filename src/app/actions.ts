@@ -26,11 +26,14 @@ export async function convertCodeAction(input: ConvertCodeInput) {
     return await convertCode(input);
 }
 
-export async function getSnippetsAction({ page = 0, limit = 3 }: { page: number; limit: number }): Promise<{ snippets: Snippet[], hasMore: boolean }> {
+export async function getSnippetsAction({ page = 0, limit = 3, authorId }: { page: number; limit: number, authorId?: string }): Promise<{ snippets: Snippet[], hasMore: boolean }> {
   const session = await auth();
   const userId = session?.user?.id;
   
+  const whereClause = authorId ? { authorId } : {};
+
   const snippets = await prisma.snippet.findMany({
+    where: whereClause,
     skip: page * limit,
     take: limit,
     orderBy: {
@@ -39,27 +42,45 @@ export async function getSnippetsAction({ page = 0, limit = 3 }: { page: number;
     include: {
       author: true,
       _count: {
-        select: { likes: true, comments: true }
+        select: { likes: true, comments: true, saves: true }
       }
     }
   });
 
-  const totalSnippets = await prisma.snippet.count();
+  const totalSnippets = await prisma.snippet.count({ where: whereClause });
   const hasMore = (page * limit) + limit < totalSnippets;
 
-  const snippetsWithLikes = snippets.map(snippet => {
-    // This is a placeholder. In a real app, you'd query the Like model.
+  let userLikes: string[] = [];
+  let userSaves: string[] = [];
+
+  if (userId) {
+    const likes = await prisma.like.findMany({
+      where: { userId: userId, snippetId: { in: snippets.map(s => s.id) } },
+      select: { snippetId: true }
+    });
+    userLikes = likes.map(like => like.snippetId);
+
+    const saves = await prisma.save.findMany({
+        where: { userId: userId, snippetId: { in: snippets.map(s => s.id) } },
+        select: { snippetId: true }
+    });
+    userSaves = saves.map(save => save.snippetId);
+  }
+
+
+  const snippetsWithLikes: Snippet[] = snippets.map(snippet => {
     const typedSnippet: Snippet = {
         ...snippet,
+        author: snippet.author,
         likes_count: snippet._count.likes,
         comments_count: snippet._count.comments,
-        isLiked: false, // You would check if userId has liked this snippet
-        isBookmarked: false, // You would check if userId has saved this snippet
+        saves_count: snippet._count.saves,
+        isLiked: userLikes.includes(snippet.id),
+        isBookmarked: userSaves.includes(snippet.id),
         views_count: 1000 // Placeholder
     };
     return typedSnippet;
   });
-
 
   return { snippets: snippetsWithLikes, hasMore };
 }

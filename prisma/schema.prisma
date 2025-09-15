@@ -37,6 +37,22 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model User {
+  id              String    @id @default(cuid())
+  name            String?
+  email           String?   @unique
+  emailVerified   DateTime?
+  image           String?
+  accounts        Account[]
+  sessions        Session[]
+  snippets        Snippet[]
+  comments        Comment[]
+  likes           Like[]
+  saves           Save[]
+  followers       Follow[]  @relation("following")
+  following       Follow[]  @relation("follower")
+}
+
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -45,117 +61,68 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model User {
-  id              String    @id @default(cuid())
-  name            String?
-  email           String?   @unique
-  emailVerified   DateTime?
-  image           String?
-  username        String?   @unique
-  bio             String?
-  website_url     String?
-  location        String?
-  accounts        Account[]
-  sessions        Session[]
-  snippets        Snippet[]
-  comments        Comment[]
-  likes           Like[]
-  savedSnippets   SavedSnippet[]
-  followers       Follow[]         @relation("Following")
-  following       Follow[]         @relation("Follower")
-  docs            Doc[]
-}
-
-model Follow {
-  followerId  String
-  followingId String
-  createdAt   DateTime @default(now())
-
-  follower  User @relation("Follower", fields: [followerId], references: [id])
-  following User @relation("Following", fields: [followingId], references:[id])
-
-  @@id([followerId, followingId])
-}
-
 model Snippet {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   title       String
   description String
-  code        String   @db.Text
+  code        String    @db.Text
   language    String
-  is_public   Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  authorId String
-  author   User   @relation(fields: [authorId], references: [id])
-
-  tags     String[]
-  comments Comment[]
-  likes    Like[]
-  saves    SavedSnippet[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments    Comment[]
+  likes       Like[]
+  saves       Save[]
 
   @@index([authorId])
 }
-
-model Doc {
-  id          String   @id @default(cuid())
-  title       String
-  description String
-  content     String   @db.Text
-  tags        String[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  authorId String
-  author   User   @relation(fields: [authorId], references: [id])
-
-  @@index([authorId])
-}
-
 
 model Comment {
   id        String   @id @default(cuid())
   content   String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
-
   snippetId String
-  snippet   Snippet  @relation(fields: [snippetId], references: [id])
+  snippet   Snippet  @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-  @@index([authorId])
   @@index([snippetId])
+  @@index([authorId])
 }
 
 model Like {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-
   snippetId String
-  snippet   Snippet  @relation(fields: [snippetId], references: [id])
+  snippet   Snippet  @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, snippetId])
+  @@unique([snippetId, userId])
   @@index([userId])
-  @@index([snippetId])
 }
 
-model SavedSnippet {
+model Save {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-
   snippetId String
-  snippet   Snippet  @relation(fields: [snippetId], references: [id])
+  snippet   Snippet  @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, snippetId])
+  @@unique([snippetId, userId])
   @@index([userId])
-  @@index([snippetId])
+}
+
+model Follow {
+  followerId  String
+  follower    User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@id([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
 }

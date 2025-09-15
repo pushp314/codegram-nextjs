@@ -8,17 +8,24 @@ import SnippetGenerator from '@/components/snippet-generator';
 import type { Snippet } from '@/lib/types';
 import { getSnippetsAction } from './actions';
 import { Skeleton } from '@/components/ui/skeleton';
-import { mockSnippets } from '@/lib/mock-data';
 
 const SNIPPETS_PER_PAGE = 3;
 
 function SnippetSkeleton() {
   return (
-    <div className="flex flex-col space-y-3">
+    <div className="flex flex-col space-y-3 p-4 border rounded-xl bg-card/50">
+      <div className="flex items-center space-x-4">
+        <Skeleton className="h-12 w-12 rounded-full" />
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-[150px]" />
+          <Skeleton className="h-4 w-[100px]" />
+        </div>
+      </div>
+       <Skeleton className="h-6 w-[250px] mt-4" />
       <Skeleton className="h-[250px] w-full rounded-xl" />
-      <div className="space-y-2">
-        <Skeleton className="h-4 w-[250px]" />
-        <Skeleton className="h-4 w-[200px]" />
+      <div className="flex justify-between">
+         <Skeleton className="h-8 w-[120px]" />
+         <Skeleton className="h-8 w-[80px]" />
       </div>
     </div>
   )
@@ -65,7 +72,7 @@ export default function Home() {
     if (inView && hasMore && !loading) {
       loadMoreSnippets();
     }
-  }, [inView, loading, hasMore]);
+  }, [inView, hasMore, loading]);
 
 
   return (
@@ -80,6 +87,7 @@ export default function Home() {
             <>
               <SnippetSkeleton />
               <SnippetSkeleton />
+              <SnippetSkeleton />
             </>
           )}
 
@@ -92,6 +100,13 @@ export default function Home() {
               </div>
             </div>
           )}
+           {!hasMore && snippets.length === 0 && !loading && (
+             <div className="text-center py-8">
+              <div className="inline-flex items-center space-x-2 bg-muted rounded-full px-4 py-2 text-muted-foreground">
+                <span>No snippets yet. Be the first to post!</span>
+              </div>
+            </div>
+           )}
         </div>
       </div>
       <aside className="space-y-6 lg:col-span-1 lg:order-1">

@@ -1,41 +1,54 @@
 
+'use server';
+
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Edit, Settings, Plus, Code, FileText, Bookmark, Bug } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import SnippetCard from '@/components/snippet-card';
-import { mockSnippets } from '@/lib/mock-data';
+import { Edit, Plus, Code, FileText, Bookmark, Bug } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { getSnippetsAction } from '../actions';
+import ProfileTabs from './profile-tabs';
+import prisma from '@/lib/db';
+
+async function getProfileStats(userId: string) {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+            _count: {
+                select: { 
+                    snippets: true,
+                    followers: true,
+                    following: true,
+                }
+            }
+        }
+    });
+    return {
+        snippets: user?._count.snippets ?? 0,
+        followers: user?._count.followers ?? 0,
+        following: user?._count.following ?? 0,
+    }
+}
+
 
 export default async function ProfilePage() {
   const session = await auth();
 
-  if (!session?.user) {
+  if (!session?.user?.id) {
     redirect('/login');
   }
 
   const { user } = session;
-
-  // Use the logged-in user's name for the sample snippets for a personal touch
-  const userSnippets = mockSnippets.map((snippet, index) => ({
-      ...snippet,
-      id: (index + 1).toString(),
-      author: {
-        ...snippet.author,
-        full_name: user.name ?? snippet.author.full_name,
-        avatar_url: user.image ?? snippet.author.avatar_url,
-        username: user.email?.split('@')[0] ?? snippet.author.username,
-      }
-  }));
+  const { snippets, followers, following } = await getProfileStats(user.id);
+  const initialSnippets = await getSnippetsAction({ page: 0, limit: 4, authorId: user.id });
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8">
@@ -83,55 +96,21 @@ export default async function ProfilePage() {
 
             <div className="flex flex-wrap gap-4 sm:gap-6 border-t border-b py-3 mb-6">
                 <div className="text-center">
-                    <p className="font-bold text-xl">12</p>
+                    <p className="font-bold text-xl">{snippets}</p>
                     <p className="text-xs text-muted-foreground">Snippets</p>
                 </div>
                 <div className="text-center">
-                    <p className="font-bold text-xl">1.2k</p>
+                    <p className="font-bold text-xl">{followers}</p>
                     <p className="text-xs text-muted-foreground">Followers</p>
                 </div>
                  <div className="text-center">
-                    <p className="font-bold text-xl">345</p>
+                    <p className="font-bold text-xl">{following}</p>
                     <p className="text-xs text-muted-foreground">Following</p>
                 </div>
             </div>
+            
+            <ProfileTabs initialSnippets={initialSnippets} authorId={user.id} />
 
-            <Tabs defaultValue="snippets" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="snippets"><Code className="mr-2 h-4 w-4" />Snippets</TabsTrigger>
-                    <TabsTrigger value="docs"><FileText className="mr-2 h-4 w-4" />Docs</TabsTrigger>
-                    <TabsTrigger value="saved"><Bookmark className="mr-2 h-4 w-4" />Saved</TabsTrigger>
-                </TabsList>
-                <TabsContent value="snippets" className="mt-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {userSnippets.map((snippet) => (
-                            <SnippetCard key={snippet.id} snippet={snippet} />
-                        ))}
-                    </div>
-                </TabsContent>
-                <TabsContent value="docs">
-                     <Card className="flex flex-col items-center justify-center text-center p-12 h-96 border-dashed">
-                        <CardHeader>
-                        <div className="mx-auto mb-4 bg-primary/10 p-3 rounded-full">
-                            <FileText className="h-8 w-8 text-primary" />
-                        </div>
-                        <CardTitle>No Docs Yet</CardTitle>
-                        <CardDescription className="text-muted-foreground">You haven't published any documentation yet.</CardDescription>
-                        </CardHeader>
-                    </Card>
-                </TabsContent>
-                <TabsContent value="saved">
-                     <Card className="flex flex-col items-center justify-center text-center p-12 h-96 border-dashed">
-                        <CardHeader>
-                        <div className="mx-auto mb-4 bg-primary/10 p-3 rounded-full">
-                            <Bookmark className="h-8 w-8 text-primary" />
-                        </div>
-                        <CardTitle>No Saved Items</CardTitle>
-                        <CardDescription className="text-muted-foreground">You haven't saved any snippets or docs yet.</CardDescription>
-                        </CardHeader>
-                    </Card>
-                </TabsContent>
-            </Tabs>
         </CardContent>
       </Card>
     </div>
