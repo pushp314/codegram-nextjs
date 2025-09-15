@@ -14,7 +14,7 @@ import { Wand2, Loader2, PartyPopper } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
-const languages = ['javascript', 'python', 'java', 'csharp', 'typescript', 'go', 'css', 'html', 'tsx', 'jsx'];
+const languages = ['tsx', 'jsx', 'javascript', 'typescript', 'html', 'css', 'python', 'go', 'java', 'csharp'];
 
 const formSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters.'),
