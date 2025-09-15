@@ -21,6 +21,8 @@ export type Document = Omit<PrismaDocument, 'authorId'> & {
 
 export type Bug = Omit<PrismaBug, 'authorId'> & {
     author: User;
+    upvotes_count: number;
+    isUpvoted: boolean;
 }
 
 

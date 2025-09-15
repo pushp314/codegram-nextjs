@@ -383,13 +383,75 @@ export async function getDocumentBySlugAction(slug: string): Promise<(Document &
 }
 
 export async function getBugsAction(): Promise<Bug[]> {
+    const session = await auth();
+    const userId = session?.user?.id;
+
     const bugs = await prisma.bug.findMany({
         orderBy: {
             createdAt: 'desc'
         },
         include: {
-            author: true
+            author: true,
+            _count: {
+                select: { upvotes: true }
+            }
         }
     });
-    return bugs;
+
+    const bugIds = bugs.map(b => b.id);
+    let userUpvotes: string[] = [];
+
+    if (userId) {
+        const upvotes = await prisma.bugUpvote.findMany({
+            where: { userId: userId, bugId: { in: bugIds } },
+            select: { bugId: true }
+        });
+        userUpvotes = upvotes.map(upvote => upvote.bugId);
+    }
+    
+    return bugs.map(bug => ({
+        ...bug,
+        author: bug.author,
+        upvotes_count: bug._count.upvotes,
+        isUpvoted: userUpvotes.includes(bug.id),
+        comments: 0 // Placeholder
+    }));
+}
+
+
+export async function toggleBugUpvoteAction(bugId: string) {
+    const session = await auth();
+    const userId = session?.user?.id;
+
+    if (!userId) {
+        throw new Error('You must be logged in to upvote a bug.');
+    }
+
+    const existingUpvote = await prisma.bugUpvote.findUnique({
+        where: {
+            userId_bugId: {
+                userId,
+                bugId,
+            }
+        },
+    });
+
+    if (existingUpvote) {
+        await prisma.bugUpvote.delete({
+            where: {
+                userId_bugId: {
+                    userId,
+                    bugId,
+                },
+            },
+        });
+    } else {
+        await prisma.bugUpvote.create({
+            data: {
+                userId,
+                bugId,
+            },
+        });
+    }
+    revalidatePath('/bugs');
 }

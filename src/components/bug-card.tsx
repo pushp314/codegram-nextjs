@@ -2,9 +2,11 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from './ui/badge';
-import { MessageCircle, ThumbsUp } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
+import BugCardActions from './bug-card-actions';
 
 type BugCardProps = {
+  bugId: string;
   authorName: string;
   authorImage: string;
   authorImageHint: string;
@@ -13,9 +15,12 @@ type BugCardProps = {
   upvotes: number;
   comments: number;
   tags: string[];
+  isUpvoted: boolean;
+  isLoggedIn: boolean;
 };
 
 export default function BugCard({
+  bugId,
   authorName,
   authorImage,
   authorImageHint,
@@ -24,6 +29,8 @@ export default function BugCard({
   upvotes,
   comments,
   tags,
+  isUpvoted,
+  isLoggedIn,
 }: BugCardProps) {
   return (
     <Card>
@@ -37,7 +44,7 @@ export default function BugCard({
             <p className="font-semibold">{authorName}</p>
             <p className="text-xs text-muted-foreground">{timestamp}</p>
           </div>
-          <p className="text-sm text-muted-foreground">@{authorName.toLowerCase().replace(' ', '')}</p>
+          <p className="text-sm text-muted-foreground">@{authorName.toLowerCase().replace(/\s/g, '')}</p>
         </div>
       </CardHeader>
       <CardContent>
@@ -49,10 +56,7 @@ export default function BugCard({
                 ))}
             </div>
             <div className="flex items-center gap-4 text-muted-foreground">
-                <div className="flex items-center gap-1">
-                    <ThumbsUp className="h-4 w-4" />
-                    <span className="text-xs">{upvotes}</span>
-                </div>
+                <BugCardActions bugId={bugId} upvotes={upvotes} isUpvoted={isUpvoted} isLoggedIn={isLoggedIn} />
                 <div className="flex items-center gap-1">
                     <MessageCircle className="h-4 w-4" />
                     <span className="text-xs">{comments}</span>

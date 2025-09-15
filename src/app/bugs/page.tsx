@@ -4,9 +4,11 @@ import { getBugsAction } from '../actions';
 import BugCard from '@/components/bug-card';
 import { formatDistanceToNow } from 'date-fns';
 import CreateBugForm from '@/components/create-bug-form';
+import { auth } from '@/lib/auth';
 
 export default async function BugsPage() {
   const bugs = await getBugsAction();
+  const session = await auth();
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
@@ -22,14 +24,17 @@ export default async function BugsPage() {
         {bugs.map((bug) => (
           <BugCard
             key={bug.id}
+            bugId={bug.id}
             authorName={bug.author.name || 'Anonymous'}
             authorImage={bug.author.image || ''}
             authorImageHint="developer portrait"
             timestamp={formatDistanceToNow(new Date(bug.createdAt), { addSuffix: true })}
             content={bug.content}
-            upvotes={0} // Placeholder
+            upvotes={bug.upvotes_count}
             comments={0} // Placeholder
             tags={[bug.status.toLowerCase(), 'bug']}
+            isUpvoted={bug.isUpvoted}
+            isLoggedIn={!!session?.user}
           />
         ))}
       </div>

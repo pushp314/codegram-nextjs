@@ -1,11 +1,37 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  bio           String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts   Account[]
+  sessions   Session[]
+  snippets   Snippet[]
+  documents  Document[]
+  comments   Comment[]
+  likes      Like[]
+  saves      Save[]
+  bugs       Bug[]
+  bugUpvotes BugUpvote[]
+
+  followers Follows[] @relation("following")
+  following Follows[] @relation("follower")
 }
 
 model Account {
@@ -35,27 +61,6 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  bio           String?
-
-  accounts  Account[]
-  sessions  Session[]
-  snippets  Snippet[]
-  documents Document[]
-  bugs      Bug[]
-  comments  Comment[]
-  likes     Like[]
-  saves     Save[]
-
-  followers Follows[] @relation("following")
-  following Follows[] @relation("follower")
-}
-
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -63,6 +68,16 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+model Follows {
+  followerId  String
+  followingId String
+  follower    User   @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User   @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+}
+
 
 model Snippet {
   id          String    @id @default(cuid())
@@ -95,14 +110,14 @@ model Document {
 }
 
 model Bug {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   content   String
-  status    String   @default("OPEN") // e.g., OPEN, IN_PROGRESS, CLOSED
+  status    String      @default("OPEN")
   authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  upvotes   BugUpvote[]
 }
 
 model Comment {
@@ -141,12 +156,14 @@ model Save {
   @@unique([userId, snippetId], name: "userId_snippetId")
 }
 
-model Follows {
-  followerId  String
-  followingId String
+model BugUpvote {
+  id        String   @id @default(cuid())
+  bugId     String
+  userId    String
+  createdAt DateTime @default(now())
 
-  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
-  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+  bug  Bug  @relation(fields: [bugId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([followerId, followingId])
+  @@unique([userId, bugId])
 }
