@@ -9,6 +9,7 @@ import type { Snippet } from '@/lib/types';
 import { getSnippetsAction } from '../actions';
 import { useEffect, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const SNIPPETS_PER_PAGE = 4;
 
