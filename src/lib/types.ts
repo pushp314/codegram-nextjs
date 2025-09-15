@@ -8,6 +8,8 @@ export type UserWithFollows = User & {
     followers: { follower: User }[];
     following: { following: User }[];
     _count: {
+        snippets: number;
+        documents: number;
         followers: number;
         following: number;
     }
