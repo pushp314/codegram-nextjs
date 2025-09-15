@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 export default function BugsPage() {
     const [open, setOpen] = useState(false);
     const [content, setContent] = useState('');
-    const [isPosting, startPosting] = useTransition();
+    const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const { data: session } = useSession();
     const router = useRouter();
@@ -36,7 +36,7 @@ export default function BugsPage() {
             return;
         }
 
-        startPosting(async () => {
+        startTransition(async () => {
             try {
                 await createBugAction(content);
                 toast({
@@ -45,7 +45,6 @@ export default function BugsPage() {
                 });
                 setContent('');
                 setOpen(false);
-                router.refresh();
             } catch (error) {
                 console.error(error);
                 toast({
@@ -84,8 +83,8 @@ export default function BugsPage() {
                         onChange={(e) => setContent(e.target.value)}
                     />
                 </div>
-                <Button onClick={handlePost} disabled={isPosting}>
-                    {isPosting && <Loader2 className="animate-spin mr-2" />}
+                <Button onClick={handlePost} disabled={isPending}>
+                    {isPending && <Loader2 className="animate-spin mr-2" />}
                     Post
                 </Button>
             </DialogContent>

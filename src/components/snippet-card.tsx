@@ -97,17 +97,21 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
     exit: { opacity: 0, y: -10 },
   };
 
+  const authorName = author?.name ?? 'Anonymous';
+  const authorEmail = author?.email?.split('@')[0] ?? 'anonymous';
+  const authorImage = author?.image ?? undefined;
+
   return (
     <Card className="flex flex-col rounded-xl">
       <CardHeader>
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={author?.image ?? undefined} alt={author?.name ?? 'User'} />
-            <AvatarFallback>{author?.name?.charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={authorImage} alt={authorName} />
+            <AvatarFallback>{authorName.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-semibold">{author?.name}</p>
-            <p className="text-sm text-muted-foreground">@{author?.email?.split('@')[0]}</p>
+            <p className="font-semibold">{authorName}</p>
+            <p className="text-sm text-muted-foreground">@{authorEmail}</p>
           </div>
         </div>
          <CardTitle className="font-headline text-xl pt-4">{title}</CardTitle>
