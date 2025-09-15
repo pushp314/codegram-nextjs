@@ -130,6 +130,7 @@ export async function toggleLikeAction(snippetId: string) {
     revalidatePath('/');
     revalidatePath(`/explore`);
     revalidatePath(`/profile`);
+    revalidatePath('/saved');
 }
 
 export async function toggleSaveAction(snippetId: string) {
@@ -168,6 +169,7 @@ export async function toggleSaveAction(snippetId: string) {
     revalidatePath('/');
     revalidatePath(`/explore`);
     revalidatePath(`/profile`);
+    revalidatePath('/saved');
 }
 
 

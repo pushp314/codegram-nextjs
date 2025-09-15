@@ -7,9 +7,10 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/ca
 import { Code, FileText, Bookmark } from 'lucide-react';
 import type { Snippet } from '@/lib/types';
 import { getSnippetsAction, getSavedSnippetsAction } from '../actions';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, use } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSession } from 'next-auth/react';
 
 const SNIPPETS_PER_PAGE = 4;
 
@@ -47,24 +48,69 @@ function EmptyState({ icon: Icon, title, description }: { icon: React.ElementTyp
     );
 }
 
-export default function ProfileTabs({ initialSnippets, authorId }: { initialSnippets: { snippets: Snippet[], hasMore: boolean }, authorId: string }) {
-    const [activeTab, setActiveTab] = useState('snippets');
+function SnippetList({ fetcher, authorId }: { fetcher: (params: { page: number; limit: number; userId: string; }) => Promise<{ snippets: Snippet[], hasMore: boolean }>, authorId: string }) {
+    const [snippets, setSnippets] = useState<Snippet[]>([]);
+    const [page, setPage] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [hasMore, setHasMore] = useState(true);
+    const { ref, inView } = useInView({ threshold: 0, rootMargin: '200px' });
 
+    const loadMoreSnippets = useCallback(async (currentPage: number) => {
+        if (!hasMore || loading) return;
+        setLoading(true);
+        const { snippets: newSnippets, hasMore: newHasMore } = await fetcher({ page: currentPage, limit: SNIPPETS_PER_PAGE, userId: authorId });
+        setSnippets(prev => [...prev, ...newSnippets]);
+        setPage(currentPage);
+        setHasMore(newHasMore);
+        setLoading(false);
+    }, [hasMore, loading, fetcher, authorId]);
+    
+    useEffect(() => {
+        setLoading(true);
+        fetcher({ page: 0, limit: SNIPPETS_PER_PAGE, userId: authorId }).then(({ snippets, hasMore }) => {
+            setSnippets(snippets);
+            setHasMore(hasMore);
+            setPage(0);
+            setLoading(false);
+        });
+    }, [fetcher, authorId]);
+
+    useEffect(() => {
+        if (inView && hasMore && !loading) {
+            loadMoreSnippets(page + 1);
+        }
+    }, [inView, hasMore, loading, page, loadMoreSnippets]);
+
+    return (
+        <>
+            {snippets.length === 0 && !loading && (
+                <EmptyState icon={Bookmark} title="No Saved Items" description="You haven't saved any items yet." />
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {snippets.map((snippet) => (
+                    <SnippetCard key={`saved-${snippet.id}`} snippet={snippet} />
+                ))}
+                {loading && (
+                    <>
+                        <SnippetSkeleton />
+                        <SnippetSkeleton />
+                    </>
+                )}
+            </div>
+            <div ref={ref} className="h-10" />
+        </>
+    );
+}
+
+
+export default function ProfileTabs({ initialSnippets, authorId }: { initialSnippets: { snippets: Snippet[], hasMore: boolean }, authorId: string }) {
+    const { data: session } = useSession();
     const [userSnippets, setUserSnippets] = useState<Snippet[]>(initialSnippets.snippets);
     const [userSnippetsPage, setUserSnippetsPage] = useState(0);
     const [userSnippetsLoading, setUserSnippetsLoading] = useState(false);
     const [userSnippetsHasMore, setUserSnippetsHasMore] = useState(initialSnippets.hasMore);
 
-    const [savedSnippets, setSavedSnippets] = useState<Snippet[]>([]);
-    const [savedSnippetsPage, setSavedSnippetsPage] = useState(0);
-    const [savedSnippetsLoading, setSavedSnippetsLoading] = useState(false);
-    const [savedSnippetsHasMore, setSavedSnippetsHasMore] = useState(true);
-
-
-    const { ref, inView } = useInView({
-        threshold: 0,
-        rootMargin: '200px',
-    });
+    const { ref: userSnippetsRef, inView: userSnippetsInView } = useInView({ threshold: 0, rootMargin: '200px' });
 
     const loadMoreUserSnippets = useCallback(async () => {
         if (!userSnippetsHasMore || userSnippetsLoading) return;
@@ -79,48 +125,24 @@ export default function ProfileTabs({ initialSnippets, authorId }: { initialSnip
         setUserSnippetsLoading(false);
     }, [userSnippetsHasMore, userSnippetsLoading, userSnippetsPage, authorId]);
     
-    const loadMoreSavedSnippets = useCallback(async () => {
-        if (!savedSnippetsHasMore || savedSnippetsLoading) return;
-        setSavedSnippetsLoading(true);
-
-        const nextPage = savedSnippetsPage + 1;
-        const { snippets: newSnippets, hasMore: newHasMore } = await getSavedSnippetsAction({ page: nextPage, limit: SNIPPETS_PER_PAGE, userId: authorId });
-        
-        setSavedSnippets(prev => [...prev, ...newSnippets]);
-        setSavedSnippetsPage(nextPage);
-        setSavedSnippetsHasMore(newHasMore);
-        setSavedSnippetsLoading(false);
-    }, [savedSnippetsHasMore, savedSnippetsLoading, savedSnippetsPage, authorId]);
-
-
     useEffect(() => {
-        if (inView) {
-            if(activeTab === 'snippets') {
-                loadMoreUserSnippets();
-            } else if (activeTab === 'saved') {
-                loadMoreSavedSnippets();
-            }
+        if (userSnippetsInView) {
+            loadMoreUserSnippets();
         }
-    }, [inView, activeTab, loadMoreUserSnippets, loadMoreSavedSnippets]);
+    }, [userSnippetsInView, loadMoreUserSnippets]);
 
-    useEffect(() => {
-        if (activeTab === 'saved' && savedSnippets.length === 0) {
-            getSavedSnippetsAction({ page: 0, limit: SNIPPETS_PER_PAGE, userId: authorId })
-                .then(({ snippets, hasMore }) => {
-                    setSavedSnippets(snippets);
-                    setSavedSnippetsHasMore(hasMore);
-                    setSavedSnippetsPage(0);
-                });
-        }
-    }, [activeTab, savedSnippets.length, authorId]);
+    const isCurrentUserProfile = session?.user?.id === authorId;
 
+    const fetchSavedSnippets = useCallback(async (params: { page: number, limit: number, userId: string }) => {
+        return getSavedSnippetsAction(params);
+    }, []);
 
     return (
-        <Tabs defaultValue="snippets" className="w-full" onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="snippets" className="w-full">
+            <TabsList className={cn("grid w-full", isCurrentUserProfile ? "grid-cols-3" : "grid-cols-2")}>
                 <TabsTrigger value="snippets"><Code className="mr-2 h-4 w-4" />Snippets</TabsTrigger>
                 <TabsTrigger value="docs"><FileText className="mr-2 h-4 w-4" />Docs</TabsTrigger>
-                <TabsTrigger value="saved"><Bookmark className="mr-2 h-4 w-4" />Saved</TabsTrigger>
+                {isCurrentUserProfile && <TabsTrigger value="saved"><Bookmark className="mr-2 h-4 w-4" />Saved</TabsTrigger>}
             </TabsList>
             <TabsContent value="snippets" className="mt-6">
                 {userSnippets.length === 0 && !userSnippetsLoading && (
@@ -141,36 +163,20 @@ export default function ProfileTabs({ initialSnippets, authorId }: { initialSnip
                         </>
                     )}
                 </div>
-                 <div ref={ref} className="h-10" />
+                 <div ref={userSnippetsRef} className="h-10" />
             </TabsContent>
-            <TabsContent value="docs">
+            <TabsContent value="docs" className="mt-6">
                 <EmptyState 
                     icon={FileText}
                     title="No Docs Yet"
                     description="You haven't published any documentation yet."
                 />
             </TabsContent>
-            <TabsContent value="saved" className="mt-6">
-                 {savedSnippets.length === 0 && !savedSnippetsLoading && (
-                    <EmptyState 
-                        icon={Bookmark}
-                        title="No Saved Items"
-                        description="You haven't saved any snippets or docs yet."
-                    />
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     {savedSnippets.map((snippet) => (
-                        <SnippetCard key={`saved-${snippet.id}`} snippet={snippet} />
-                    ))}
-                    {savedSnippetsLoading && (
-                        <>
-                            <SnippetSkeleton />
-                            <SnippetSkeleton />
-                        </>
-                    )}
-                </div>
-                 <div ref={ref} className="h-10" />
-            </TabsContent>
+            {isCurrentUserProfile && (
+                <TabsContent value="saved" className="mt-6">
+                    <SnippetList fetcher={fetchSavedSnippets} authorId={authorId} />
+                </TabsContent>
+            )}
         </Tabs>
     )
 }
