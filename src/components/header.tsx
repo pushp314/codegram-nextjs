@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Bell, Plus, Code, FileText, Bug } from 'lucide-react';
+import { Plus, Code, FileText, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import UserAuthNav from './user-auth-nav';
 import MobileSidebar from './mobile-sidebar';
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
+import NotificationBell from './notification-bell';
 
 export default function Header() {
   return (
@@ -46,10 +47,7 @@ export default function Header() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button variant="ghost" size="icon">
-          <Bell className="h-5 w-5" />
-          <span className="sr-only">Notifications</span>
-        </Button>
+        <NotificationBell />
         <UserAuthNav />
       </div>
     </header>

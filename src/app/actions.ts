@@ -7,7 +7,7 @@ import {
 } from '@/ai/flows/generate-code-snippet-from-description';
 import { convertCode, type ConvertCodeInput } from '@/ai/flows/convert-code';
 import { auth } from '@/lib/auth';
-import type { Snippet, Document, Bug, User, DocumentComment, SnippetComment } from '@/lib/types';
+import type { Snippet, Document, Bug, User, DocumentComment, SnippetComment, Notification } from '@/lib/types';
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
@@ -110,25 +110,34 @@ export async function toggleLikeAction(snippetId: string) {
         }
     });
 
+    const snippet = await prisma.snippet.findUnique({ where: { id: snippetId }, select: { authorId: true } });
+    if (!snippet) return;
+
     if (like) {
         await prisma.like.delete({
-            where: {
-                id: like.id,
-            }
+            where: { id: like.id, }
         });
     } else {
         await prisma.like.create({
-            data: {
-                userId,
-                snippetId,
-            }
+            data: { userId, snippetId, }
         });
+
+        // Create notification if not liking own snippet
+        if (userId !== snippet.authorId) {
+            await prisma.notification.create({
+                data: {
+                    recipientId: snippet.authorId,
+                    originatorId: userId,
+                    type: 'LIKE',
+                    link: `/snippets/${snippetId}`
+                }
+            });
+        }
     }
     revalidatePath('/');
     revalidatePath(`/explore`);
     revalidatePath(`/profile`);
     revalidatePath('/saved');
-    revalidatePath('/community');
 }
 
 export async function toggleSaveAction(snippetId: string) {
@@ -148,18 +157,9 @@ export async function toggleSaveAction(snippetId: string) {
     });
 
     if (save) {
-        await prisma.save.delete({
-            where: {
-                id: save.id,
-            }
-        });
+        await prisma.save.delete({ where: { id: save.id, } });
     } else {
-        await prisma.save.create({
-            data: {
-                userId,
-                snippetId,
-            }
-        });
+        await prisma.save.create({ data: { userId, snippetId, } });
     }
     revalidatePath('/');
     revalidatePath(`/explore`);
@@ -204,6 +204,15 @@ export async function toggleFollowAction(authorId: string) {
                 followerId: currentUserId,
                 followingId: authorId,
             },
+        });
+        
+        // Create notification
+        await prisma.notification.create({
+            data: {
+                recipientId: authorId,
+                originatorId: currentUserId,
+                type: 'FOLLOW'
+            }
         });
     }
 
@@ -576,47 +585,41 @@ export async function getUsersAction({ query }: { query?: string }): Promise<(Us
 export async function toggleDocumentLikeAction(documentId: string) {
     const session = await auth();
     const userId = session?.user?.id;
-    if (!userId) {
-        throw new Error('You must be logged in to like a document.');
-    }
+    if (!userId) throw new Error('You must be logged in to like a document.');
 
-    const like = await prisma.documentLike.findUnique({
-        where: {
-            userId_documentId: {
-                userId,
-                documentId,
-            }
-        }
-    });
+    const doc = await prisma.document.findUnique({ where: { id: documentId }, select: { authorId: true, slug: true } });
+    if (!doc) throw new Error('Document not found');
 
-    const path = (await prisma.document.findUnique({where: {id: documentId}, select: {slug: true}}))?.slug;
+    const like = await prisma.documentLike.findUnique({ where: { userId_documentId: { userId, documentId } } });
 
     if (like) {
         await prisma.documentLike.delete({ where: { id: like.id } });
     } else {
         await prisma.documentLike.create({ data: { userId, documentId } });
+        if (userId !== doc.authorId) {
+            await prisma.notification.create({
+                data: {
+                    recipientId: doc.authorId,
+                    originatorId: userId,
+                    type: 'LIKE',
+                    link: `/docs/${doc.slug}`
+                }
+            });
+        }
     }
 
-    if (path) revalidatePath(`/docs/${path}`);
+    if (doc.slug) revalidatePath(`/docs/${doc.slug}`);
 }
 
 export async function toggleDocumentSaveAction(documentId: string) {
     const session = await auth();
     const userId = session?.user?.id;
-    if (!userId) {
-        throw new Error('You must be logged in to save a document.');
-    }
+    if (!userId) throw new Error('You must be logged in to save a document.');
 
-    const save = await prisma.documentSave.findUnique({
-        where: {
-            userId_documentId: {
-                userId,
-                documentId,
-            }
-        }
-    });
+    const doc = await prisma.document.findUnique({ where: { id: documentId }, select: { slug: true } });
+    if (!doc) throw new Error('Document not found');
 
-    const path = (await prisma.document.findUnique({where: {id: documentId}, select: {slug: true}}))?.slug;
+    const save = await prisma.documentSave.findUnique({ where: { userId_documentId: { userId, documentId } } });
 
     if (save) {
         await prisma.documentSave.delete({ where: { id: save.id } });
@@ -624,30 +627,35 @@ export async function toggleDocumentSaveAction(documentId: string) {
         await prisma.documentSave.create({ data: { userId, documentId } });
     }
 
-    if (path) revalidatePath(`/docs/${path}`);
+    if (doc.slug) revalidatePath(`/docs/${doc.slug}`);
     revalidatePath('/saved');
 }
 
 export async function createDocumentCommentAction(documentId: string, content: string) {
     const session = await auth();
     const userId = session?.user?.id;
-    if (!userId) {
-        throw new Error('You must be logged in to comment.');
-    }
-    if (content.trim().length === 0) {
-        throw new Error('Comment cannot be empty.');
-    }
+    if (!userId) throw new Error('You must be logged in to comment.');
+    if (content.trim().length === 0) throw new Error('Comment cannot be empty.');
+
+    const doc = await prisma.document.findUnique({ where: { id: documentId }, select: { authorId: true, slug: true } });
+    if (!doc) throw new Error('Document not found');
 
     await prisma.documentComment.create({
-        data: {
-            content,
-            documentId,
-            authorId: userId,
-        }
+        data: { content, documentId, authorId: userId }
     });
     
-    const path = (await prisma.document.findUnique({where: {id: documentId}, select: {slug: true}}))?.slug;
-    if (path) revalidatePath(`/docs/${path}`);
+    if (userId !== doc.authorId) {
+        await prisma.notification.create({
+            data: {
+                recipientId: doc.authorId,
+                originatorId: userId,
+                type: 'COMMENT',
+                link: `/docs/${doc.slug}`
+            }
+        });
+    }
+    
+    if (doc.slug) revalidatePath(`/docs/${doc.slug}`);
 }
 
 export async function getSnippetCommentsAction(snippetId: string): Promise<SnippetComment[]> {
@@ -668,26 +676,32 @@ export async function getSnippetCommentsAction(snippetId: string): Promise<Snipp
 export async function addSnippetCommentAction(snippetId: string, content: string) {
     const session = await auth();
     const userId = session?.user?.id;
-    if (!userId) {
-        throw new Error('You must be logged in to comment.');
-    }
-    if (content.trim().length === 0) {
-        throw new Error('Comment cannot be empty.');
-    }
+    if (!userId) throw new Error('You must be logged in to comment.');
+    if (content.trim().length === 0) throw new Error('Comment cannot be empty.');
+
+    const snippet = await prisma.snippet.findUnique({ where: { id: snippetId }, select: { authorId: true } });
+    if (!snippet) throw new Error('Snippet not found');
 
     await prisma.snippetComment.create({
-        data: {
-            content,
-            snippetId,
-            authorId: userId,
-        }
+        data: { content, snippetId, authorId: userId }
     });
+    
+    if (userId !== snippet.authorId) {
+        await prisma.notification.create({
+            data: {
+                recipientId: snippet.authorId,
+                originatorId: userId,
+                type: 'COMMENT',
+                link: `/snippets/${snippetId}`
+            }
+        });
+    }
     
     revalidatePath('/');
     revalidatePath(`/explore`);
     revalidatePath(`/profile`);
     revalidatePath('/saved');
-    revalidatePath(`/snippets/${snippetId}`); // A generic path, might need adjustment
+    revalidatePath(`/snippets/${snippetId}`);
 }
 
 export async function getDocumentCommentsAction(documentId: string): Promise<DocumentComment[]> {
@@ -778,4 +792,25 @@ export async function getSavedDocumentsAction({ page = 0, limit = 4, userId }: {
   const sortedDocs = docsWithData.sort((a, b) => docIds.indexOf(a.id) - docIds.indexOf(b.id));
 
   return { documents: sortedDocs, hasMore };
+}
+
+export async function getNotificationsAction(userId: string): Promise<{ notifications: Notification[], unreadCount: number }> {
+    const notifications = await prisma.notification.findMany({
+        where: { recipientId: userId },
+        include: { originator: true, recipient: true },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+    });
+    const unreadCount = await prisma.notification.count({
+        where: { recipientId: userId, read: false },
+    });
+    return { notifications: notifications as Notification[], unreadCount };
+}
+
+export async function markNotificationsAsReadAction(userId: string) {
+    await prisma.notification.updateMany({
+        where: { recipientId: userId, read: false },
+        data: { read: true },
+    });
+    revalidatePath('/any'); // A generic path to trigger revalidation
 }
