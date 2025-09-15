@@ -1,3 +1,5 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 datasource db {
   provider = "postgresql"
@@ -6,26 +8,6 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
-}
-
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  bio           String?
-  accounts      Account[]
-  sessions      Session[]
-  snippets      Snippet[]
-  documents     Document[]
-  bugs          Bug[]
-  comments      Comment[]
-  likes         Like[]
-  saves         Save[]
-  
-  followers     Follow[] @relation("following")
-  following     Follow[] @relation("followers")
 }
 
 model Account {
@@ -55,22 +37,37 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  bio           String?   @db.Text
+  accounts      Account[]
+  sessions      Session[]
+  snippets      Snippet[]
+  documents     Document[]
+  bugs          Bug[]
+  comments      Comment[]
+  likes         Like[]
+  saves         Save[]
+  
+  followers Follow[] @relation("following")
+  following Follow[] @relation("follower")
 }
 
 model Follow {
   followerId  String
-  follower    User   @relation("followers", fields: [followerId], references: [id], onDelete: Cascade)
   followingId String
-  following   User   @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  follower    User @relation("follower", fields: [followerId], references: [id])
+  following   User @relation("following", fields: [followingId], references: [id])
 
   @@id([followerId, followingId])
 }
+
 
 model Snippet {
   id          String    @id @default(cuid())
@@ -78,10 +75,10 @@ model Snippet {
   description String
   code        String    @db.Text
   language    String
+  authorId    String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
   comments    Comment[]
   likes       Like[]
   saves       Save[]
@@ -94,49 +91,49 @@ model Document {
   description String
   content     String   @db.Text
   tags        String[]
+  authorId    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
 }
 
 model Bug {
   id        String   @id @default(cuid())
-  content   String
-  status    String   @default("OPEN") // e.g., OPEN, IN_PROGRESS, CLOSED
-  createdAt DateTime @default(now())
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
   authorId  String
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+  author    User     @relation(fields: [authorId], references: [id])
 }
 
 model Comment {
   id        String   @id @default(cuid())
   content   String
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-  snippet   Snippet  @relation(fields: [snippetId], references: [id], onDelete: Cascade)
   snippetId String
+  authorId  String
+  createdAt DateTime @default(now())
+  snippet   Snippet  @relation(fields: [snippetId], references: [id])
+  author    User     @relation(fields: [authorId], references: [id])
 }
 
 model Like {
   id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-  snippet   Snippet  @relation(fields: [snippetId], references: [id], onDelete: Cascade)
   snippetId String
+  userId    String
+  createdAt DateTime @default(now())
+  snippet   Snippet  @relation(fields: [snippetId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, snippetId], name: "userId_snippetId")
 }
 
 model Save {
   id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-  snippet   Snippet  @relation(fields: [snippetId], references: [id], onDelete: Cascade)
   snippetId String
+  userId    String
+  createdAt DateTime @default(now())
+  snippet   Snippet  @relation(fields: [snippetId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, snippetId], name: "userId_snippetId")
 }
