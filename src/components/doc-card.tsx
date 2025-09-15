@@ -6,8 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 
 type DocCardProps = {
   title: string;
-  author: string;
-  authorImage: string;
+  author: string | null;
+  authorImage: string | null;
   authorImageHint: string;
   image: string;
   imageHint: string;
@@ -45,8 +45,8 @@ export function DocCard({
         </div>
         <div className="mt-3 flex items-center gap-3">
              <Avatar className="h-8 w-8">
-                <AvatarImage src={authorImage} alt={author} data-ai-hint={authorImageHint}/>
-                <AvatarFallback>{author.charAt(0)}</AvatarFallback>
+                <AvatarImage src={authorImage ?? undefined} alt={author ?? undefined} data-ai-hint={authorImageHint}/>
+                <AvatarFallback>{author?.charAt(0) ?? 'A'}</AvatarFallback>
             </Avatar>
             <span className="text-sm font-medium text-muted-foreground">{author}</span>
         </div>

@@ -1,3 +1,4 @@
+
 'use server';
 
 import {
@@ -6,7 +7,7 @@ import {
 } from '@/ai/flows/generate-code-snippet-from-description';
 import { convertCode, type ConvertCodeInput } from '@/ai/flows/convert-code';
 import { auth } from '@/lib/auth';
-import type { Snippet } from '@/lib/types';
+import type { Snippet, Document } from '@/lib/types';
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
@@ -199,4 +200,17 @@ export async function getSnippetsAction({ page = 0, limit = 3, authorId }: { pag
   });
 
   return { snippets: snippetsWithLikes, hasMore };
+}
+
+
+export async function getDocumentsAction(): Promise<Document[]> {
+    const documents = await prisma.document.findMany({
+        orderBy: {
+            createdAt: 'desc'
+        },
+        include: {
+            author: true
+        }
+    });
+    return documents;
 }

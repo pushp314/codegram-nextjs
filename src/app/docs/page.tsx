@@ -2,6 +2,7 @@
 import { DocCard } from '@/components/doc-card';
 import { Input } from '@/components/ui/input';
 import { FileText, Search } from 'lucide-react';
+import { getDocumentsAction } from '../actions';
 
 const placeholderDocs = [
   {
@@ -72,8 +73,30 @@ const placeholderDocs = [
   },
 ];
 
+function slugify(text: string) {
+  return text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
+}
 
-export default function DocsPage() {
+export default async function DocsPage() {
+  const documents = await getDocumentsAction();
+
+  // For now, we merge fetched docs with placeholder docs for visual variety
+  const allDocs = [
+      ...documents.map((doc, index) => ({
+        title: doc.title,
+        description: doc.description,
+        tags: doc.tags,
+        image: `https://picsum.photos/seed/db-doc${index}/600/400`,
+        imageHint: 'tech background',
+        author: doc.author.name || 'Unknown',
+        authorImage: doc.author.image || `https://picsum.photos/seed/db-author${index}/40/40`,
+        authorImageHint: 'developer portrait',
+        link: `/docs/${slugify(doc.title)}`
+      })),
+      ...placeholderDocs,
+  ].slice(0, 7); // Limit for consistent layout
+
+
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
        <div className="flex items-center gap-4 mb-8">
@@ -89,8 +112,18 @@ export default function DocsPage() {
         </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {placeholderDocs.map((doc, index) => (
-          <DocCard key={index} {...doc} />
+        {allDocs.map((doc, index) => (
+          <DocCard 
+            key={index}
+            title={doc.title}
+            tags={doc.tags}
+            image={doc.image}
+            imageHint={doc.imageHint}
+            author={doc.author}
+            authorImage={doc.authorImage}
+            authorImageHint={doc.authorImageHint}
+            link={doc.link}
+          />
         ))}
       </div>
     </div>
