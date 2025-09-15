@@ -11,6 +11,13 @@ import type { Snippet, Document } from '@/lib/types';
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
+function slugify(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '');
+}
+
 
 export async function generateSnippetAction(input: GenerateCodeSnippetInput) {
   const session = await auth();
@@ -54,10 +61,12 @@ export async function createDocAction(data: { title: string; description: string
     }
 
     const tagsArray = data.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+    const slug = slugify(data.title);
 
     await prisma.document.create({
         data: {
             title: data.title,
+            slug: slug,
             description: data.description,
             content: data.content,
             tags: tagsArray,
@@ -66,6 +75,7 @@ export async function createDocAction(data: { title: string; description: string
     });
 
     revalidatePath('/docs');
+    return { slug };
 }
 
 export async function toggleLikeAction(snippetId: string) {
@@ -213,4 +223,16 @@ export async function getDocumentsAction(): Promise<Document[]> {
         }
     });
     return documents;
+}
+
+export async function getDocumentBySlugAction(slug: string): Promise<Document | null> {
+    const document = await prisma.document.findUnique({
+        where: {
+            slug,
+        },
+        include: {
+            author: true,
+        },
+    });
+    return document;
 }

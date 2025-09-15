@@ -39,7 +39,7 @@ export default function CreateDocForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     startSubmitting(async () => {
         try {
-            await createDocAction({
+            const result = await createDocAction({
                 title: values.title,
                 description: values.description,
                 content: values.content,
@@ -49,7 +49,7 @@ export default function CreateDocForm() {
               title: "Document Published!",
               description: "Your document is now live for the community.",
             });
-            router.push('/docs');
+            router.push(`/docs/${result.slug}`);
         } catch (error) {
             console.error(error);
             toast({

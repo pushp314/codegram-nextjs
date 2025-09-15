@@ -1,12 +1,13 @@
-
-datasource db {
-  provider     = "postgresql"
-  url          = env("DATABASE_URL")
-  relationMode = "prisma"
-}
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Account {
@@ -36,23 +37,6 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  bio           String?
-  accounts      Account[]
-  sessions      Session[]
-  snippets      Snippet[]
-  comments      Comment[]
-  likes         Like[]
-  saves         Save[]
-  followers     Follow[]  @relation("Following")
-  following     Follow[]  @relation("Followers")
-}
-
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -61,32 +45,86 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model User {
+  id              String    @id @default(cuid())
+  name            String?
+  email           String?   @unique
+  emailVerified   DateTime?
+  image           String?
+  username        String?   @unique
+  bio             String?
+  website_url     String?
+  location        String?
+  accounts        Account[]
+  sessions        Session[]
+  snippets        Snippet[]
+  comments        Comment[]
+  likes           Like[]
+  savedSnippets   SavedSnippet[]
+  followers       Follow[]         @relation("Following")
+  following       Follow[]         @relation("Follower")
+  docs            Doc[]
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("Follower", fields: [followerId], references: [id])
+  following User @relation("Following", fields: [followingId], references:[id])
+
+  @@id([followerId, followingId])
+}
+
 model Snippet {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   title       String
   description String
-  code        String
+  code        String   @db.Text
   language    String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  author      User      @relation(fields: [authorId], references: [id])
-  authorId    String
-  comments    Comment[]
-  likes       Like[]
-  saves       Save[]
+  is_public   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  tags     String[]
+  comments Comment[]
+  likes    Like[]
+  saves    SavedSnippet[]
 
   @@index([authorId])
 }
+
+model Doc {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  content     String   @db.Text
+  tags        String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  @@index([authorId])
+}
+
 
 model Comment {
   id        String   @id @default(cuid())
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  author    User     @relation(fields: [authorId], references: [id])
+
   authorId  String
-  snippet   Snippet  @relation(fields: [snippetId], references: [id])
+  author    User     @relation(fields: [authorId], references: [id])
+
   snippetId String
+  snippet   Snippet  @relation(fields: [snippetId], references: [id])
 
   @@index([authorId])
   @@index([snippetId])
@@ -95,37 +133,29 @@ model Comment {
 model Like {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+
   userId    String
-  snippet   Snippet  @relation(fields: [snippetId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
   snippetId String
+  snippet   Snippet  @relation(fields: [snippetId], references: [id])
 
   @@unique([userId, snippetId])
   @@index([userId])
   @@index([snippetId])
 }
 
-model Save {
+model SavedSnippet {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+
   userId    String
-  snippet   Snippet  @relation(fields: [snippetId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
   snippetId String
+  snippet   Snippet  @relation(fields: [snippetId], references: [id])
 
   @@unique([userId, snippetId])
   @@index([userId])
   @@index([snippetId])
-}
-
-model Follow {
-  follower   User     @relation("Followers", fields: [followerId], references: [id])
-  followerId String
-  following  User     @relation("Following", fields: [followingId], references: [id])
-  followingId String
-  createdAt  DateTime @default(now())
-
-  @@id([followerId, followingId])
-  @@index([followerId])
-  @@index([followingId])
 }
