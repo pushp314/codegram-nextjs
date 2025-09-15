@@ -7,16 +7,26 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Bug, Plus, Loader2 } from 'lucide-react';
-import { useState } from 'react';
-
+import { useState, useTransition } from 'react';
+import { createBugAction } from '../actions';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 export default function BugsPage() {
     const [open, setOpen] = useState(false);
     const [content, setContent] = useState('');
-    const [isPosting, setIsPosting] = useState(false);
+    const [isPosting, startPosting] = useTransition();
     const { toast } = useToast();
+    const { data: session } = useSession();
+    const router = useRouter();
+
 
     const handlePost = async () => {
+        if (!session) {
+            router.push('/login');
+            return;
+        }
+
         if (content.length < 10) {
             toast({
                 variant: 'destructive',
@@ -26,18 +36,24 @@ export default function BugsPage() {
             return;
         }
 
-        setIsPosting(true);
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        toast({
-            title: 'Bug Reported!',
-            description: 'Thanks for your contribution.',
+        startPosting(async () => {
+            try {
+                await createBugAction(content);
+                toast({
+                    title: 'Bug Reported!',
+                    description: 'Thanks for your contribution.',
+                });
+                setContent('');
+                setOpen(false);
+            } catch (error) {
+                console.error(error);
+                toast({
+                    variant: 'destructive',
+                    title: 'Failed to Report Bug',
+                    description: error instanceof Error ? error.message : 'An unknown error occurred.',
+                });
+            }
         });
-
-        setIsPosting(false);
-        setContent('');
-        setOpen(false);
     }
 
   return (

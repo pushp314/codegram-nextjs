@@ -7,7 +7,7 @@ import {
 } from '@/ai/flows/generate-code-snippet-from-description';
 import { convertCode, type ConvertCodeInput } from '@/ai/flows/convert-code';
 import { auth } from '@/lib/auth';
-import type { Snippet, Document } from '@/lib/types';
+import type { Snippet, Document, Bug } from '@/lib/types';
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
@@ -77,6 +77,21 @@ export async function createDocAction(data: { title: string; description: string
     revalidatePath('/docs');
     return { slug };
 }
+
+export async function createBugAction(content: string) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        throw new Error('You must be logged in to report a bug.');
+    }
+    await prisma.bug.create({
+        data: {
+            content,
+            authorId: session.user.id,
+        }
+    });
+    revalidatePath('/bugs');
+}
+
 
 export async function toggleLikeAction(snippetId: string) {
     const session = await auth();
@@ -235,4 +250,16 @@ export async function getDocumentBySlugAction(slug: string): Promise<Document | 
         },
     });
     return document;
+}
+
+export async function getBugsAction(): Promise<Bug[]> {
+    const bugs = await prisma.bug.findMany({
+        orderBy: {
+            createdAt: 'desc'
+        },
+        include: {
+            author: true
+        }
+    });
+    return bugs;
 }
