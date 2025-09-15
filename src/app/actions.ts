@@ -625,6 +625,7 @@ export async function toggleDocumentSaveAction(documentId: string) {
     }
 
     if (path) revalidatePath(`/docs/${path}`);
+    revalidatePath('/saved');
 }
 
 export async function createDocumentCommentAction(documentId: string, content: string) {
@@ -686,6 +687,22 @@ export async function addSnippetCommentAction(snippetId: string, content: string
     revalidatePath(`/explore`);
     revalidatePath(`/profile`);
     revalidatePath('/saved');
+    revalidatePath(`/snippets/${snippetId}`); // A generic path, might need adjustment
+}
+
+export async function getDocumentCommentsAction(documentId: string): Promise<DocumentComment[]> {
+    const comments = await prisma.documentComment.findMany({
+        where: {
+            documentId,
+        },
+        include: {
+            author: true
+        },
+        orderBy: {
+            createdAt: 'desc'
+        }
+    });
+    return comments.map(c => ({...c, author: c.author}));
 }
 
 

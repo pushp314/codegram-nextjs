@@ -15,17 +15,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { addSnippetCommentAction, getSnippetCommentsAction } from '@/app/actions';
-import type { Snippet, SnippetComment } from '@/lib/types';
+import { createDocumentCommentAction, getDocumentCommentsAction } from '@/app/actions';
+import type { FullDocument, DocumentComment } from '@/lib/types';
 
-interface SnippetDetailSheetProps {
-  snippet: Snippet;
+interface DocDetailSheetProps {
+  doc: FullDocument;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
 
-export function SnippetDetailSheet({ snippet, isOpen, onOpenChange }: SnippetDetailSheetProps) {
-  const [comments, setComments] = useState<SnippetComment[]>([]);
+export function DocDetailSheet({ doc, isOpen, onOpenChange }: DocDetailSheetProps) {
+  const [comments, setComments] = useState<DocumentComment[]>([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState('');
 
@@ -35,17 +35,18 @@ export function SnippetDetailSheet({ snippet, isOpen, onOpenChange }: SnippetDet
   const { toast } = useToast();
 
   const fetchComments = async () => {
-    setIsLoadingComments(true);
-    const allComments = await getSnippetCommentsAction(snippet.id);
-    setComments(allComments);
-    setIsLoadingComments(false);
-  };
-  
+      if (!doc.id) return;
+      setIsLoadingComments(true);
+      const allComments = await getDocumentCommentsAction(doc.id);
+      setComments(allComments);
+      setIsLoadingComments(false);
+  }
+
   useEffect(() => {
     if (isOpen) {
       fetchComments();
     }
-  }, [isOpen, snippet.id]);
+  }, [isOpen, doc.id]);
 
 
   const handleCommentSubmit = async () => {
@@ -55,11 +56,11 @@ export function SnippetDetailSheet({ snippet, isOpen, onOpenChange }: SnippetDet
     }
     startCommentTransition(async () => {
       try {
-        await addSnippetCommentAction(snippet.id, commentText);
+        await createDocumentCommentAction(doc.id, commentText);
         setCommentText('');
         toast({ title: 'Comment posted!' });
-        await fetchComments(); // Refetch comments to show the new one
-        router.refresh(); // Revalidate the page to update comment count on cards
+        await fetchComments();
+        router.refresh();
       } catch (error) {
         toast({
           variant: 'destructive',
@@ -74,18 +75,17 @@ export function SnippetDetailSheet({ snippet, isOpen, onOpenChange }: SnippetDet
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="font-headline text-2xl">{snippet.title}</SheetTitle>
-          <SheetDescription>{snippet.description}</SheetDescription>
+          <SheetTitle className="font-headline text-2xl">{doc.title}</SheetTitle>
         </SheetHeader>
         <div className="py-4">
           <div className="flex items-center gap-3 mb-4">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={snippet.author.image ?? undefined} alt={snippet.author.name ?? ''} />
-              <AvatarFallback>{snippet.author.name?.charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarImage src={doc.author.image ?? undefined} alt={doc.author.name ?? ''} />
+              <AvatarFallback>{doc.author.name?.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-semibold text-sm">{snippet.author.name}</p>
-              <p className="text-xs text-muted-foreground">@{snippet.author.email?.split('@')[0]}</p>
+              <p className="font-semibold text-sm">{doc.author.name}</p>
+              <p className="text-xs text-muted-foreground">@{doc.author.email?.split('@')[0]}</p>
             </div>
           </div>
 

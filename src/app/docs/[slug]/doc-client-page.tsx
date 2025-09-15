@@ -4,7 +4,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Bookmark, MessageCircle, Send, Heart, Share2, MoreVertical, Flag, ShieldBan, UserCheck, UserPlus, Loader2 } from 'lucide-react';
+import { Bookmark, MessageCircle, Heart, Share2, MoreVertical, Flag, ShieldBan, UserCheck, UserPlus, Loader2, Code, Eye } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import CodeBlock from '@/components/code-block';
@@ -16,13 +16,13 @@ import { useInView } from 'react-intersection-observer';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TracingBeam } from '@/components/ui/tracing-beam';
-import { format, formatDistanceToNow } from 'date-fns';
-import { toggleFollowAction, toggleDocumentLikeAction, toggleDocumentSaveAction, createDocumentCommentAction, type FullDocument } from '@/app/actions';
+import { format } from 'date-fns';
+import { toggleFollowAction, toggleDocumentLikeAction, toggleDocumentSaveAction, type FullDocument } from '@/app/actions';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { Textarea } from '@/components/ui/textarea';
-import Link from 'next/link';
+import { DocDetailSheet } from '@/components/doc-detail-sheet';
+
 
 function slugify(text: string) {
     if (!text) return '';
@@ -34,14 +34,13 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
   const [isScrolled, setIsScrolled] = useState(false);
   const [toc, setToc] = useState<{level: number, text: string, id: string}[]>([]);
   const { ref, inView } = useInView({ threshold: 0 });
-  const [commentText, setCommentText] = useState('');
-
   
   const [isFollowPending, startFollowTransition] = useTransition();
   const [isLikePending, startLikeTransition] = useTransition();
   const [isSavePending, startSaveTransition] = useTransition();
-  const [isCommentPending, startCommentTransition] = useTransition();
   
+  const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
+
   const { data: session } = useSession();
   const router = useRouter();
   const { toast } = useToast();
@@ -58,12 +57,16 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
     }
   }, [doc]);
 
+  useEffect(() => {
+    setDoc(initialDoc);
+  }, [initialDoc]);
+
 
   useEffect(() => {
     setIsScrolled(!inView);
   }, [inView]);
 
-  const handleAction = async (action: () => Promise<void>, startTransition: React.TransitionStartFunction, revalidate?: boolean) => {
+  const handleAction = async (action: () => Promise<void>, startTransition: React.TransitionStartFunction) => {
     if (!session?.user) {
         router.push('/login');
         return;
@@ -71,7 +74,6 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
     startTransition(async () => {
         try {
             await action();
-            if (revalidate) router.refresh();
         } catch (error) {
             console.error(error);
             toast({
@@ -107,12 +109,6 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
       await toggleDocumentSaveAction(doc.id);
   }, startSaveTransition);
 
-  const handleCommentSubmit = () => handleAction(async () => {
-    await createDocumentCommentAction(doc.id, commentText);
-    setCommentText('');
-    toast({ title: "Comment posted!" });
-  }, startCommentTransition, true);
-
 
   const SocialButton = ({ icon: Icon, children, tooltip, onClick, pending, active }: { icon: React.ElementType, children?: React.ReactNode, tooltip: string, onClick?: () => void, pending?: boolean, active?: boolean }) => (
     <TooltipProvider delayDuration={0}>
@@ -141,6 +137,7 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
   );
 
   return (
+    <>
     <TracingBeam className="px-6">
     <div className="container mx-auto max-w-7xl px-4 py-8">
       <div className="flex flex-col lg:flex-row gap-12">
@@ -171,11 +168,9 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
                         <SocialButton icon={Heart} tooltip={`Like (${doc.likes_count})`} onClick={handleLike} pending={isLikePending} active={doc.isLiked}>
                             {!isScrolled && <span>Like ({doc.likes_count})</span>}
                         </SocialButton>
-                        <a href="#comments">
-                            <SocialButton icon={MessageCircle} tooltip={`Comment (${doc.comments_count})`}>
-                                {!isScrolled && <span>Comment ({doc.comments_count})</span>}
-                            </SocialButton>
-                        </a>
+                        <SocialButton icon={MessageCircle} tooltip={`Comment (${doc.comments_count})`} onClick={() => setIsDetailSheetOpen(true)}>
+                            {!isScrolled && <span>Comment ({doc.comments_count})</span>}
+                        </SocialButton>
                     </div>
                     <div className={cn("flex items-center", isScrolled ? "gap-1" : "gap-1")}>
                         <SocialButton icon={Bookmark} tooltip="Save" onClick={handleSave} pending={isSavePending} active={doc.isSaved}/>
@@ -269,60 +264,6 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
                 </CardContent>
             </Card>
 
-          <Separator className="my-12" />
-
-          <div id="comments">
-            <h2 className="text-2xl font-bold mb-6">Comments ({doc.comments_count})</h2>
-            <div className="space-y-6">
-                {session?.user ? (
-                <div className="flex gap-4">
-                    <Avatar>
-                         <AvatarImage src={session.user.image ?? undefined} />
-                        <AvatarFallback>{session.user.name?.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                        <Textarea 
-                            placeholder="Add a comment..." 
-                            className="w-full bg-card/50 backdrop-blur-sm rounded-lg p-3 text-sm focus:ring-primary focus:ring-2 focus:outline-none transition-shadow" 
-                            rows={3}
-                            value={commentText}
-                            onChange={(e) => setCommentText(e.target.value)}
-                        />
-                        <div className="flex justify-end mt-2">
-                            <Button 
-                                onClick={handleCommentSubmit} 
-                                disabled={isCommentPending || commentText.trim().length === 0}
-                                className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 transition-colors">
-                                {isCommentPending ? <Loader2 className="animate-spin h-4 w-4" /> : <Send className="h-4 w-4" />}
-                                Post
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-                ) : (
-                    <div className='text-center text-muted-foreground'>
-                        <Link href="/login" className='text-primary underline'>Log in</Link> to post a comment.
-                    </div>
-                )}
-                <div className="space-y-8">
-                    {doc.comments.map(comment => (
-                        <div key={comment.id} className="flex gap-4">
-                            <Avatar>
-                                <AvatarImage src={comment.author.image ?? undefined} />
-                                <AvatarFallback>{comment.author.name?.charAt(0).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <div className='flex-1'>
-                                <div className='flex items-baseline gap-2'>
-                                    <p className='font-semibold'>{comment.author.name}</p>
-                                    <p className='text-xs text-muted-foreground'>{formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}</p>
-                                </div>
-                                <p className='text-sm text-muted-foreground'>{comment.content}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-          </div>
         </div>
 
         <aside className="hidden lg:block lg:w-1/4 space-y-6 lg:sticky lg:top-24 lg:self-start">
@@ -345,5 +286,11 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
       </div>
     </div>
     </TracingBeam>
+    <DocDetailSheet 
+        doc={doc}
+        isOpen={isDetailSheetOpen}
+        onOpenChange={setIsDetailSheetOpen}
+    />
+    </>
   );
 }
