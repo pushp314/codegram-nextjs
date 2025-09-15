@@ -4,6 +4,8 @@ import GitHub from 'next-auth/providers/github';
 import Google from 'next-auth/providers/google';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import prisma from './db';
+import type { AdapterUser } from 'next-auth/adapters';
+
 
 const config = {
   adapter: PrismaAdapter(prisma),
@@ -21,7 +23,7 @@ const config = {
     signIn: '/login',
   },
   callbacks: {
-    async session({ session, user }: { session: any; user: any }) {
+    async session({ session, user }: { session: any; user: AdapterUser }) {
       if (user?.id && session.user) {
         session.user.id = user.id;
       }
@@ -39,7 +41,7 @@ const config = {
     },
   },
   session: {
-    strategy: 'jwt',
+    strategy: 'database',
   },
 };
 

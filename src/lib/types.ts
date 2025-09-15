@@ -2,10 +2,11 @@
 
 import type { User as PrismaUser, Snippet as PrismaSnippet } from '@prisma/client';
 
-export type User = PrismaUser;
+// This is the user type returned from Prisma, but without sensitive fields
+export type User = Omit<PrismaUser, 'emailVerified'>;
 
 export type Snippet = Omit<PrismaSnippet, 'authorId'> & {
-  author: PrismaUser;
+  author: User;
   likes_count: number;
   comments_count: number;
   saves_count: number;

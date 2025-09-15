@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useState } from 'react';
-import { generateSnippetAction } from '@/app/actions';
-import { Wand2, Loader2 } from 'lucide-react';
+import { useState, useTransition } from 'react';
+import { generateSnippetAction, createSnippetAction } from '@/app/actions';
+import { Wand2, Loader2, PartyPopper } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 const languages = ['javascript', 'python', 'java', 'csharp', 'typescript', 'go', 'css', 'html', 'tsx', 'jsx'];
 
@@ -25,7 +26,9 @@ const formSchema = z.object({
 
 export default function CreateSnippetForm() {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, startSubmitting] = useTransition();
   const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -69,10 +72,32 @@ export default function CreateSnippetForm() {
   };
   
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: "Snippet Ready!",
-      description: "Your snippet is ready to be posted. (Backend functionality not yet implemented)",
+    startSubmitting(async () => {
+      try {
+        await createSnippetAction({
+            title: values.title,
+            description: values.description,
+            code: values.code,
+            language: values.language,
+        });
+        toast({
+            title: 'Snippet Published!',
+            description: 'Your snippet is now live for the community to see.',
+            action: (
+              <div className="bg-green-500 text-white p-2 rounded-full">
+                <PartyPopper />
+              </div>
+            )
+        });
+        router.push('/');
+      } catch (error) {
+         console.error(error);
+        toast({
+            variant: 'destructive',
+            title: 'Failed to Publish',
+            description: error instanceof Error ? error.message : 'An unknown error occurred.',
+        });
+      }
     });
   }
 
@@ -178,7 +203,10 @@ export default function CreateSnippetForm() {
           )}
         />
 
-        <Button type="submit" className="w-full text-lg h-12">Publish Snippet</Button>
+        <Button type="submit" className="w-full text-lg h-12" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="animate-spin mr-2" />}
+          Publish Snippet
+        </Button>
       </form>
     </Form>
   );

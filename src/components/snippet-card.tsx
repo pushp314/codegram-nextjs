@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { explainCodeSnippet } from '@/ai/flows/explain-code-snippet';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
@@ -23,21 +23,29 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import LiveComponent from './live-component';
 import type { Snippet } from '@/lib/types';
+import { toggleLikeAction, toggleSaveAction } from '@/app/actions';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 type SnippetCardProps = {
   snippet: Snippet;
 };
 
 export default function SnippetCard({ snippet }: SnippetCardProps) {
-  const { author, title, code, language, likes_count } = snippet;
+  const { author, title, code, language, likes_count, isLiked, isBookmarked, id } = snippet;
 
   const [explanation, setExplanation] = useState('');
   const [isLoadingExplanation, setIsLoadingExplanation] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const { toast } = useToast();
-  const [isLiked, setIsLiked] = useState(false);
-  const [likes, setLikes] = useState(likes_count);
   const [activeTab, setActiveTab] = useState('preview');
+  
+  const [isLikePending, startLikeTransition] = useTransition();
+  const [isSavePending, startSaveTransition] = useTransition();
+  
+  const { data: session } = useSession();
+  const router = useRouter();
+
 
   const handleExplainCode = async () => {
     if (explanation) {
@@ -62,8 +70,23 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
   };
 
   const handleLike = () => {
-    setIsLiked(!isLiked);
-    setLikes(prev => isLiked ? prev - 1 : prev + 1);
+    if (!session) {
+      router.push('/login');
+      return;
+    }
+    startLikeTransition(async () => {
+      await toggleLikeAction(id);
+    });
+  };
+  
+  const handleSave = () => {
+    if (!session) {
+      router.push('/login');
+      return;
+    }
+     startSaveTransition(async () => {
+      await toggleSaveAction(id);
+    });
   };
 
   const isComponent = language === 'jsx' || language === 'tsx' || language === 'html';
@@ -79,12 +102,12 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
       <CardHeader>
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={author.avatar_url} alt={author.full_name} data-ai-hint="developer portrait" />
-            <AvatarFallback>{author.full_name.charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={author.image ?? undefined} alt={author.name ?? 'User'} />
+            <AvatarFallback>{author.name?.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-semibold">{author.full_name}</p>
-            <p className="text-sm text-muted-foreground">@{author.username}</p>
+            <p className="font-semibold">{author.name}</p>
+            <p className="text-sm text-muted-foreground">@{author.email?.split('@')[0]}</p>
           </div>
         </div>
          <CardTitle className="font-headline text-xl pt-4">{title}</CardTitle>
@@ -134,16 +157,23 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
               size="icon"
               className="text-muted-foreground hover:text-primary"
               onClick={handleLike}
+              disabled={isLikePending}
             >
               <Heart className={isLiked ? 'fill-primary text-primary' : ''} />
             </Button>
           </motion.div>
-           <span className="text-sm text-muted-foreground font-medium">{likes}</span>
+           <span className="text-sm text-muted-foreground font-medium">{likes_count}</span>
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
             <MessageCircle className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
-            <Bookmark className="h-5 w-5" />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-muted-foreground hover:text-primary"
+            onClick={handleSave}
+            disabled={isSavePending}
+            >
+            <Bookmark className={isBookmarked ? 'fill-primary text-primary' : ''} />
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>

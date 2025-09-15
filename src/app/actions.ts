@@ -8,6 +8,7 @@ import { convertCode, type ConvertCodeInput } from '@/ai/flows/convert-code';
 import { auth } from '@/lib/auth';
 import type { Snippet } from '@/lib/types';
 import prisma from '@/lib/db';
+import { revalidatePath } from 'next/cache';
 
 
 export async function generateSnippetAction(input: GenerateCodeSnippetInput) {
@@ -25,6 +26,100 @@ export async function convertCodeAction(input: ConvertCodeInput) {
     }
     return await convertCode(input);
 }
+
+export async function createSnippetAction(data: { title: string; description: string; code: string; language: string; }) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error('You must be logged in to create a snippet.');
+  }
+  
+  await prisma.snippet.create({
+    data: {
+      title: data.title,
+      description: data.description,
+      code: data.code,
+      language: data.language,
+      authorId: session.user.id,
+    }
+  });
+
+  revalidatePath('/');
+}
+
+export async function toggleLikeAction(snippetId: string) {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+        throw new Error('You must be logged in to like a snippet.');
+    }
+
+    const like = await prisma.like.findUnique({
+        where: {
+            userId_snippetId: {
+                userId,
+                snippetId,
+            }
+        }
+    });
+
+    if (like) {
+        await prisma.like.delete({
+            where: {
+                userId_snippetId: {
+                    userId,
+                    snippetId,
+                }
+            }
+        });
+    } else {
+        await prisma.like.create({
+            data: {
+                userId,
+                snippetId,
+            }
+        });
+    }
+    revalidatePath('/');
+    revalidatePath(`/explore`);
+}
+
+export async function toggleSaveAction(snippetId: string) {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+        throw new Error('You must be logged in to save a snippet.');
+    }
+
+    const save = await prisma.save.findUnique({
+        where: {
+            userId_snippetId: {
+                userId,
+                snippetId,
+            }
+        }
+    });
+
+    if (save) {
+        await prisma.save.delete({
+            where: {
+                userId_snippetId: {
+                    userId,
+                    snippetId,
+                }
+            }
+        });
+    } else {
+        await prisma.save.create({
+            data: {
+                userId,
+                snippetId,
+            }
+        });
+    }
+    revalidatePath('/');
+    revalidatePath(`/explore`);
+}
+
 
 export async function getSnippetsAction({ page = 0, limit = 3, authorId }: { page: number; limit: number, authorId?: string }): Promise<{ snippets: Snippet[], hasMore: boolean }> {
   const session = await auth();
