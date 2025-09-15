@@ -7,7 +7,7 @@ import {
 } from '@/ai/flows/generate-code-snippet-from-description';
 import { convertCode, type ConvertCodeInput } from '@/ai/flows/convert-code';
 import { auth } from '@/lib/auth';
-import type { Snippet, Document, Bug, User } from '@/lib/types';
+import type { Snippet, Document, Bug, User, DocumentComment } from '@/lib/types';
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
@@ -113,10 +113,7 @@ export async function toggleLikeAction(snippetId: string) {
     if (like) {
         await prisma.like.delete({
             where: {
-                userId_snippetId: {
-                    userId,
-                    snippetId,
-                }
+                id: like.id,
             }
         });
     } else {
@@ -153,10 +150,7 @@ export async function toggleSaveAction(snippetId: string) {
     if (save) {
         await prisma.save.delete({
             where: {
-                userId_snippetId: {
-                    userId,
-                    snippetId,
-                }
+                id: save.id,
             }
         });
     } else {
@@ -347,13 +341,20 @@ export async function getDocumentsAction(): Promise<Document[]> {
             createdAt: 'desc'
         },
         include: {
-            author: true
+            author: true,
+            comments: {
+                include: { author: true }
+            },
         }
     });
-    return documents;
+    return documents.map(d => ({...d, likes_count: 0, saves_count: 0, comments_count: d.comments.length, isLiked: false, isSaved: false}));
 }
 
-export async function getDocumentBySlugAction(slug: string): Promise<(Document & { isFollowed: boolean }) | null> {
+export type FullDocument = Document & {
+    isFollowed: boolean;
+};
+
+export async function getDocumentBySlugAction(slug: string): Promise<FullDocument | null> {
     const session = await auth();
     const currentUserId = session?.user?.id;
 
@@ -363,6 +364,17 @@ export async function getDocumentBySlugAction(slug: string): Promise<(Document &
         },
         include: {
             author: true,
+            _count: {
+                select: { likes: true, saves: true, comments: true }
+            },
+            comments: {
+                include: {
+                    author: true
+                },
+                orderBy: {
+                    createdAt: 'desc'
+                }
+            }
         },
     });
 
@@ -371,19 +383,52 @@ export async function getDocumentBySlugAction(slug: string): Promise<(Document &
     }
 
     let isFollowed = false;
-    if (currentUserId && currentUserId !== document.author.id) {
-        const follow = await prisma.follows.findUnique({
-            where: {
-                followerId_followingId: {
-                    followerId: currentUserId,
-                    followingId: document.author.id,
+    let isLiked = false;
+    let isSaved = false;
+
+    if (currentUserId) {
+        if (currentUserId !== document.author.id) {
+            const follow = await prisma.follows.findUnique({
+                where: {
+                    followerId_followingId: {
+                        followerId: currentUserId,
+                        followingId: document.author.id,
+                    },
                 },
-            },
+            });
+            isFollowed = !!follow;
+        }
+
+        const like = await prisma.documentLike.findUnique({
+            where: {
+                userId_documentId: {
+                    userId: currentUserId,
+                    documentId: document.id,
+                }
+            }
         });
-        isFollowed = !!follow;
+        isLiked = !!like;
+
+        const save = await prisma.documentSave.findUnique({
+            where: {
+                userId_documentId: {
+                    userId: currentUserId,
+                    documentId: document.id,
+                }
+            }
+        });
+        isSaved = !!save;
     }
 
-    return { ...document, isFollowed };
+    return { 
+        ...document,
+        isFollowed,
+        likes_count: document._count.likes,
+        saves_count: document._count.saves,
+        comments_count: document._count.comments,
+        isLiked,
+        isSaved
+    };
 }
 
 export async function getBugsAction(): Promise<Bug[]> {
@@ -443,10 +488,7 @@ export async function toggleBugUpvoteAction(bugId: string) {
     if (existingUpvote) {
         await prisma.bugUpvote.delete({
             where: {
-                userId_bugId: {
-                    userId,
-                    bugId,
-                },
+                id: existingUpvote.id,
             },
         });
     } else {
@@ -507,4 +549,81 @@ export async function getUsersAction({ query }: { query?: string }): Promise<(Us
         isFollowing: followingIds.includes(user.id),
         followersCount: user._count.followers
     }));
+}
+
+
+export async function toggleDocumentLikeAction(documentId: string) {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+        throw new Error('You must be logged in to like a document.');
+    }
+
+    const like = await prisma.documentLike.findUnique({
+        where: {
+            userId_documentId: {
+                userId,
+                documentId,
+            }
+        }
+    });
+
+    const path = (await prisma.document.findUnique({where: {id: documentId}, select: {slug: true}}))?.slug;
+
+    if (like) {
+        await prisma.documentLike.delete({ where: { id: like.id } });
+    } else {
+        await prisma.documentLike.create({ data: { userId, documentId } });
+    }
+
+    if (path) revalidatePath(`/docs/${path}`);
+}
+
+export async function toggleDocumentSaveAction(documentId: string) {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+        throw new Error('You must be logged in to save a document.');
+    }
+
+    const save = await prisma.documentSave.findUnique({
+        where: {
+            userId_documentId: {
+                userId,
+                documentId,
+            }
+        }
+    });
+
+    const path = (await prisma.document.findUnique({where: {id: documentId}, select: {slug: true}}))?.slug;
+
+    if (save) {
+        await prisma.documentSave.delete({ where: { id: save.id } });
+    } else {
+        await prisma.documentSave.create({ data: { userId, documentId } });
+    }
+
+    if (path) revalidatePath(`/docs/${path}`);
+}
+
+export async function createDocumentCommentAction(documentId: string, content: string) {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+        throw new Error('You must be logged in to comment.');
+    }
+    if (content.trim().length === 0) {
+        throw new Error('Comment cannot be empty.');
+    }
+
+    await prisma.documentComment.create({
+        data: {
+            content,
+            documentId,
+            authorId: userId,
+        }
+    });
+    
+    const path = (await prisma.document.findUnique({where: {id: documentId}, select: {slug: true}}))?.slug;
+    if (path) revalidatePath(`/docs/${path}`);
 }

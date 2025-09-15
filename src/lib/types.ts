@@ -1,5 +1,5 @@
 
-import type { User as PrismaUser, Snippet as PrismaSnippet, Document as PrismaDocument, Bug as PrismaBug } from '@prisma/client';
+import type { User as PrismaUser, Snippet as PrismaSnippet, Document as PrismaDocument, Bug as PrismaBug, DocumentComment as PrismaDocumentComment } from '@prisma/client';
 
 // This is the user type returned from Prisma, but without sensitive fields
 export type User = Omit<PrismaUser, 'emailVerified'>;
@@ -16,7 +16,15 @@ export type Snippet = Omit<PrismaSnippet, 'authorId'> & {
 
 export type Document = Omit<PrismaDocument, 'authorId'> & {
     author: User;
+    likes_count: number;
+    saves_count: number;
+    comments_count: number;
+    isLiked: boolean;
+    isSaved: boolean;
+    comments: (DocumentComment & { author: User })[];
 }
+
+export type DocumentComment = PrismaDocumentComment;
 
 export type Bug = Omit<PrismaBug, 'authorId'> & {
     author: User;

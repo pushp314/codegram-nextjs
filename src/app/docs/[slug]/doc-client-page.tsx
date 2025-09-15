@@ -4,7 +4,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Bookmark, MessageCircle, Send, Heart, Share2, MoreVertical, Flag, ShieldBan, FileWarning, UserCheck, UserPlus, Loader2 } from 'lucide-react';
+import { Bookmark, MessageCircle, Send, Heart, Share2, MoreVertical, Flag, ShieldBan, UserCheck, UserPlus, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import CodeBlock from '@/components/code-block';
@@ -16,25 +16,32 @@ import { useInView } from 'react-intersection-observer';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TracingBeam } from '@/components/ui/tracing-beam';
-import type { Document } from '@/lib/types';
-import { format } from 'date-fns';
-import { toggleFollowAction } from '@/app/actions';
+import { format, formatDistanceToNow } from 'date-fns';
+import { toggleFollowAction, toggleDocumentLikeAction, toggleDocumentSaveAction, createDocumentCommentAction, type FullDocument } from '@/app/actions';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { Textarea } from '@/components/ui/textarea';
+import Link from 'next/link';
 
 function slugify(text: string) {
     if (!text) return '';
     return text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
 }
 
-export default function DocClientPage({ doc }: { doc: Document & { isFollowed: boolean } }) {
+export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }) {
+  const [doc, setDoc] = useState(initialDoc);
   const [isScrolled, setIsScrolled] = useState(false);
   const [toc, setToc] = useState<{level: number, text: string, id: string}[]>([]);
   const { ref, inView } = useInView({ threshold: 0 });
+  const [commentText, setCommentText] = useState('');
+
   
-  const [isFollowed, setIsFollowed] = useState(doc.isFollowed);
   const [isFollowPending, startFollowTransition] = useTransition();
+  const [isLikePending, startLikeTransition] = useTransition();
+  const [isSavePending, startSaveTransition] = useTransition();
+  const [isCommentPending, startCommentTransition] = useTransition();
+  
   const { data: session } = useSession();
   const router = useRouter();
   const { toast } = useToast();
@@ -56,37 +63,63 @@ export default function DocClientPage({ doc }: { doc: Document & { isFollowed: b
     setIsScrolled(!inView);
   }, [inView]);
 
-
-  const handleFollow = () => {
+  const handleAction = async (action: () => Promise<void>, startTransition: React.TransitionStartFunction, revalidate?: boolean) => {
     if (!session?.user) {
         router.push('/login');
         return;
     }
-    startFollowTransition(async () => {
+    startTransition(async () => {
         try {
-            await toggleFollowAction(doc.author.id);
-            setIsFollowed(prev => !prev);
-            toast({
-                title: isFollowed ? `Unfollowed ${doc.author.name}` : `Followed ${doc.author.name}`,
-            });
+            await action();
+            if (revalidate) router.refresh();
         } catch (error) {
             console.error(error);
             toast({
                 variant: 'destructive',
                 title: 'Something went wrong',
-                description: error instanceof Error ? error.message : 'Could not update follow status.',
+                description: error instanceof Error ? error.message : 'Could not perform action.',
             });
         }
     });
-  }
+  };
+
+  const handleFollow = () => handleAction(async () => {
+    await toggleFollowAction(doc.author.id);
+    setDoc(prev => ({...prev, isFollowed: !prev.isFollowed}));
+    toast({ title: doc.isFollowed ? `Unfollowed ${doc.author.name}` : `Followed ${doc.author.name}` });
+  }, startFollowTransition);
+
+  const handleLike = () => handleAction(async () => {
+      setDoc(prev => ({
+          ...prev, 
+          isLiked: !prev.isLiked,
+          likes_count: prev.isLiked ? prev.likes_count - 1 : prev.likes_count + 1
+      }));
+      await toggleDocumentLikeAction(doc.id);
+  }, startLikeTransition);
+
+  const handleSave = () => handleAction(async () => {
+      setDoc(prev => ({
+          ...prev,
+          isSaved: !prev.isSaved,
+          saves_count: prev.isSaved ? prev.saves_count - 1 : prev.saves_count + 1
+      }));
+      await toggleDocumentSaveAction(doc.id);
+  }, startSaveTransition);
+
+  const handleCommentSubmit = () => handleAction(async () => {
+    await createDocumentCommentAction(doc.id, commentText);
+    setCommentText('');
+    toast({ title: "Comment posted!" });
+  }, startCommentTransition, true);
 
 
-  const SocialButton = ({ icon: Icon, children, tooltip }: { icon: React.ElementType, children?: React.ReactNode, tooltip: string }) => (
+  const SocialButton = ({ icon: Icon, children, tooltip, onClick, pending, active }: { icon: React.ElementType, children?: React.ReactNode, tooltip: string, onClick?: () => void, pending?: boolean, active?: boolean }) => (
     <TooltipProvider delayDuration={0}>
         <Tooltip>
             <TooltipTrigger asChild>
-                <Button variant="ghost" size={isScrolled ? 'icon' : 'sm'} className="flex items-center gap-2">
-                    <Icon className={cn("h-5 w-5", isScrolled ? "h-5 w-5" : "h-4 w-4")} />
+                <Button variant="ghost" size={isScrolled ? 'icon' : 'sm'} className={cn("flex items-center gap-2", active && 'text-primary')} onClick={onClick} disabled={pending}>
+                    {pending ? <Loader2 className="animate-spin" /> : <Icon className={cn("h-5 w-5", isScrolled ? "h-5 w-5" : "h-4 w-4", active && "fill-current")} />}
                     {!isScrolled && children}
                 </Button>
             </TooltipTrigger>
@@ -102,8 +135,8 @@ export default function DocClientPage({ doc }: { doc: Document & { isFollowed: b
         variant="secondary" 
         className="w-full sm:w-auto mt-4"
     >
-        {isFollowPending ? <Loader2 className="animate-spin mr-2"/> : (isFollowed ? <UserCheck className="mr-2" /> : <UserPlus className="mr-2" />)}
-        {isFollowed ? 'Following' : 'Follow'}
+        {isFollowPending ? <Loader2 className="animate-spin mr-2"/> : (doc.isFollowed ? <UserCheck className="mr-2" /> : <UserPlus className="mr-2" />)}
+        {doc.isFollowed ? 'Following' : 'Follow'}
     </Button>
   );
 
@@ -135,17 +168,17 @@ export default function DocClientPage({ doc }: { doc: Document & { isFollowed: b
             >
                 <div className={cn("flex items-center", isScrolled ? "gap-1" : "justify-between px-2 py-2")}>
                     <div className={cn("flex items-center", isScrolled ? "gap-1" : "gap-1")}>
-                        <SocialButton icon={Heart} tooltip="Like (1.2k)">
-                            {!isScrolled && <span>Like (1.2k)</span>}
+                        <SocialButton icon={Heart} tooltip={`Like (${doc.likes_count})`} onClick={handleLike} pending={isLikePending} active={doc.isLiked}>
+                            {!isScrolled && <span>Like ({doc.likes_count})</span>}
                         </SocialButton>
                         <a href="#comments">
-                            <SocialButton icon={MessageCircle} tooltip="Comment (3)">
-                                {!isScrolled && <span>Comment (3)</span>}
+                            <SocialButton icon={MessageCircle} tooltip={`Comment (${doc.comments_count})`}>
+                                {!isScrolled && <span>Comment ({doc.comments_count})</span>}
                             </SocialButton>
                         </a>
                     </div>
                     <div className={cn("flex items-center", isScrolled ? "gap-1" : "gap-1")}>
-                        <SocialButton icon={Bookmark} tooltip="Save" />
+                        <SocialButton icon={Bookmark} tooltip="Save" onClick={handleSave} pending={isSavePending} active={doc.isSaved}/>
                         <SocialButton icon={Share2} tooltip="Share" />
 
                         <DropdownMenu>
@@ -239,22 +272,54 @@ export default function DocClientPage({ doc }: { doc: Document & { isFollowed: b
           <Separator className="my-12" />
 
           <div id="comments">
-            <h2 className="text-2xl font-bold mb-6">Comments (0)</h2>
+            <h2 className="text-2xl font-bold mb-6">Comments ({doc.comments_count})</h2>
             <div className="space-y-6">
+                {session?.user ? (
                 <div className="flex gap-4">
                     <Avatar>
-                         <AvatarImage src={doc.author.image ?? undefined} />
-                        <AvatarFallback>U</AvatarFallback>
+                         <AvatarImage src={session.user.image ?? undefined} />
+                        <AvatarFallback>{session.user.name?.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                        <textarea placeholder="Add a comment..." className="w-full bg-card/50 backdrop-blur-sm rounded-lg p-3 text-sm focus:ring-primary focus:ring-2 focus:outline-none transition-shadow" rows={2}></textarea>
+                        <Textarea 
+                            placeholder="Add a comment..." 
+                            className="w-full bg-card/50 backdrop-blur-sm rounded-lg p-3 text-sm focus:ring-primary focus:ring-2 focus:outline-none transition-shadow" 
+                            rows={3}
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                        />
                         <div className="flex justify-end mt-2">
-                            <button className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 transition-colors">
-                                <Send className="h-4 w-4" />
+                            <Button 
+                                onClick={handleCommentSubmit} 
+                                disabled={isCommentPending || commentText.trim().length === 0}
+                                className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 transition-colors">
+                                {isCommentPending ? <Loader2 className="animate-spin h-4 w-4" /> : <Send className="h-4 w-4" />}
                                 Post
-                            </button>
+                            </Button>
                         </div>
                     </div>
+                </div>
+                ) : (
+                    <div className='text-center text-muted-foreground'>
+                        <Link href="/login" className='text-primary underline'>Log in</Link> to post a comment.
+                    </div>
+                )}
+                <div className="space-y-8">
+                    {doc.comments.map(comment => (
+                        <div key={comment.id} className="flex gap-4">
+                            <Avatar>
+                                <AvatarImage src={comment.author.image ?? undefined} />
+                                <AvatarFallback>{comment.author.name?.charAt(0).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div className='flex-1'>
+                                <div className='flex items-baseline gap-2'>
+                                    <p className='font-semibold'>{comment.author.name}</p>
+                                    <p className='text-xs text-muted-foreground'>{formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}</p>
+                                </div>
+                                <p className='text-sm text-muted-foreground'>{comment.content}</p>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
           </div>
