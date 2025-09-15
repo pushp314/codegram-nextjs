@@ -171,6 +171,50 @@ export async function toggleSaveAction(snippetId: string) {
 }
 
 
+export async function toggleFollowAction(authorId: string) {
+    const session = await auth();
+    const currentUserId = session?.user?.id;
+
+    if (!currentUserId) {
+        throw new Error('You must be logged in to follow a user.');
+    }
+
+    if (currentUserId === authorId) {
+        throw new Error('You cannot follow yourself.');
+    }
+
+    const existingFollow = await prisma.follows.findUnique({
+        where: {
+            followerId_followingId: {
+                followerId: currentUserId,
+                followingId: authorId,
+            },
+        },
+    });
+
+    if (existingFollow) {
+        await prisma.follows.delete({
+            where: {
+                followerId_followingId: {
+                    followerId: currentUserId,
+                    followingId: authorId,
+                },
+            },
+        });
+    } else {
+        await prisma.follows.create({
+            data: {
+                followerId: currentUserId,
+                followingId: authorId,
+            },
+        });
+    }
+
+    revalidatePath(`/profile`);
+    revalidatePath(`/docs`);
+}
+
+
 export async function getSnippetsAction({ page = 0, limit = 3, authorId }: { page: number; limit: number, authorId?: string }): Promise<{ snippets: Snippet[], hasMore: boolean }> {
   const session = await auth();
   const userId = session?.user?.id;
@@ -305,7 +349,10 @@ export async function getDocumentsAction(): Promise<Document[]> {
     return documents;
 }
 
-export async function getDocumentBySlugAction(slug: string): Promise<Document | null> {
+export async function getDocumentBySlugAction(slug: string): Promise<(Document & { isFollowed: boolean }) | null> {
+    const session = await auth();
+    const currentUserId = session?.user?.id;
+
     const document = await prisma.document.findUnique({
         where: {
             slug,
@@ -314,7 +361,25 @@ export async function getDocumentBySlugAction(slug: string): Promise<Document | 
             author: true,
         },
     });
-    return document;
+
+    if (!document) {
+        return null;
+    }
+
+    let isFollowed = false;
+    if (currentUserId && currentUserId !== document.author.id) {
+        const follow = await prisma.follows.findUnique({
+            where: {
+                followerId_followingId: {
+                    followerId: currentUserId,
+                    followingId: document.author.id,
+                },
+            },
+        });
+        isFollowed = !!follow;
+    }
+
+    return { ...document, isFollowed };
 }
 
 export async function getBugsAction(): Promise<Bug[]> {

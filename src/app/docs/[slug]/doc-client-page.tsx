@@ -4,13 +4,13 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Bookmark, MessageCircle, Send, Heart, Share2, MoreVertical, Flag, ShieldBan, FileWarning } from 'lucide-react';
+import { Bookmark, MessageCircle, Send, Heart, Share2, MoreVertical, Flag, ShieldBan, FileWarning, UserCheck, UserPlus, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import CodeBlock from '@/components/code-block';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import { cn } from '@/lib/utils';
@@ -18,17 +18,26 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { TracingBeam } from '@/components/ui/tracing-beam';
 import type { Document } from '@/lib/types';
 import { format } from 'date-fns';
+import { toggleFollowAction } from '@/app/actions';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
 
 function slugify(text: string) {
     if (!text) return '';
     return text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
 }
 
-export default function DocClientPage({ doc }: { doc: Document }) {
+export default function DocClientPage({ doc }: { doc: Document & { isFollowed: boolean } }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [toc, setToc] = useState<{level: number, text: string, id: string}[]>([]);
-
   const { ref, inView } = useInView({ threshold: 0 });
+  
+  const [isFollowed, setIsFollowed] = useState(doc.isFollowed);
+  const [isFollowPending, startFollowTransition] = useTransition();
+  const { data: session } = useSession();
+  const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (doc) {
@@ -48,6 +57,30 @@ export default function DocClientPage({ doc }: { doc: Document }) {
   }, [inView]);
 
 
+  const handleFollow = () => {
+    if (!session?.user) {
+        router.push('/login');
+        return;
+    }
+    startFollowTransition(async () => {
+        try {
+            await toggleFollowAction(doc.author.id);
+            setIsFollowed(prev => !prev);
+            toast({
+                title: isFollowed ? `Unfollowed ${doc.author.name}` : `Followed ${doc.author.name}`,
+            });
+        } catch (error) {
+            console.error(error);
+            toast({
+                variant: 'destructive',
+                title: 'Something went wrong',
+                description: error instanceof Error ? error.message : 'Could not update follow status.',
+            });
+        }
+    });
+  }
+
+
   const SocialButton = ({ icon: Icon, children, tooltip }: { icon: React.ElementType, children?: React.ReactNode, tooltip: string }) => (
     <TooltipProvider delayDuration={0}>
         <Tooltip>
@@ -61,6 +94,18 @@ export default function DocClientPage({ doc }: { doc: Document }) {
         </Tooltip>
     </TooltipProvider>
   )
+
+  const FollowButton = () => (
+     <Button 
+        onClick={handleFollow} 
+        disabled={isFollowPending || doc.author.id === session?.user?.id}
+        variant="secondary" 
+        className="w-full sm:w-auto mt-4"
+    >
+        {isFollowPending ? <Loader2 className="animate-spin mr-2"/> : (isFollowed ? <UserCheck className="mr-2" /> : <UserPlus className="mr-2" />)}
+        {isFollowed ? 'Following' : 'Follow'}
+    </Button>
+  );
 
   return (
     <TracingBeam className="px-6">
@@ -185,7 +230,7 @@ export default function DocClientPage({ doc }: { doc: Document }) {
                             <p className="font-bold text-lg">{doc.author.name}</p>
                             <p className="text-sm text-muted-foreground">@{doc.author.email?.split('@')[0]}</p>
                             <p className="text-sm text-muted-foreground mt-4">{doc.author.bio ?? 'A passionate developer and writer.'}</p>
-                            <button className="w-full sm:w-auto mt-4 bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors rounded-lg h-9 text-sm font-semibold px-4">Follow</button>
+                            <FollowButton />
                         </div>
                     </div>
                 </CardContent>

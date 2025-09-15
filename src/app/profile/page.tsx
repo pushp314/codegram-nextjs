@@ -19,7 +19,7 @@ import ProfileTabs from './profile-tabs';
 import prisma from '@/lib/db';
 
 async function getProfileStats(userId: string) {
-    const user = await prisma.user.findUnique({
+    const userWithCounts = await prisma.user.findUnique({
         where: { id: userId },
         include: {
             _count: {
@@ -31,11 +31,20 @@ async function getProfileStats(userId: string) {
             }
         }
     });
-    return {
-        snippets: user?._count.snippets ?? 0,
-        followers: user?._count.followers ?? 0,
-        following: user?._count.following ?? 0,
+
+    if (!userWithCounts) {
+        return {
+            snippets: 0,
+            followers: 0,
+            following: 0,
+        };
     }
+    
+    return {
+        snippets: userWithCounts._count.snippets,
+        followers: userWithCounts._count.followers,
+        following: userWithCounts._count.following,
+    };
 }
 
 
