@@ -31,7 +31,7 @@ export default async function BugsPage() {
             timestamp={formatDistanceToNow(new Date(bug.createdAt), { addSuffix: true })}
             content={bug.content}
             upvotes={bug.upvotes_count}
-            comments={0} // Placeholder
+            comments={bug.comments_count}
             tags={[bug.status.toLowerCase(), 'bug']}
             isUpvoted={bug.isUpvoted}
             isLoggedIn={!!session?.user}

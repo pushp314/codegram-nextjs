@@ -1,5 +1,4 @@
 
-
 import type { User as PrismaUser, Snippet as PrismaSnippet, Document as PrismaDocument, Bug as PrismaBug } from '@prisma/client';
 
 // This is the user type returned from Prisma, but without sensitive fields
@@ -23,6 +22,7 @@ export type Bug = Omit<PrismaBug, 'authorId'> & {
     author: User;
     upvotes_count: number;
     isUpvoted: boolean;
+    comments_count: number;
 }
 
 

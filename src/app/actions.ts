@@ -414,7 +414,7 @@ export async function getBugsAction(): Promise<Bug[]> {
         author: bug.author,
         upvotes_count: bug._count.upvotes,
         isUpvoted: userUpvotes.includes(bug.id),
-        comments: 0 // Placeholder
+        comments_count: 0 // Placeholder
     }));
 }
 
