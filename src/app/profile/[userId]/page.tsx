@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { getSnippetsAction, getDocumentsByAuthorAction, getUserProfile } from '../actions';
+import { getSnippetsAction, getDocumentsByAuthorAction, getUserProfile } from '@/app/actions';
 import ProfileTabs from './profile-tabs';
 import UserListDialog from '@/components/user-list-dialog';
 import FollowButton from '@/components/follow-button';
