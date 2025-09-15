@@ -1,7 +1,4 @@
 
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -9,6 +6,26 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  bio           String?
+  accounts      Account[]
+  sessions      Session[]
+  snippets      Snippet[]
+  documents     Document[]
+  bugs          Bug[]
+  comments      Comment[]
+  likes         Like[]
+  saves         Save[]
+  
+  followers     Follow[] @relation("following")
+  following     Follow[] @relation("followers")
 }
 
 model Account {
@@ -46,48 +63,25 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  bio           String?   @db.Text
-  
-  accounts      Account[]
-  sessions      Session[]
-  snippets      Snippet[]
-  documents     Document[]
-  bugs          Bug[]
-  comments      Comment[]
-  likes         Like[]
-  saves         Save[]
-
-  followers     Follows[] @relation("following")
-  following     Follows[] @relation("follower")
-}
-
-model Follows {
+model Follow {
   followerId  String
+  follower    User   @relation("followers", fields: [followerId], references: [id], onDelete: Cascade)
   followingId String
-  follower    User   @relation("follower", fields: [followerId], references: [id])
-  following   User   @relation("following", fields: [followingId], references: [id])
+  following   User   @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@id([followerId, followingId])
 }
 
-
 model Snippet {
   id          String    @id @default(cuid())
   title       String    @unique
-  description String    @db.Text
+  description String
   code        String    @db.Text
   language    String
-  authorId    String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-
   author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId    String
   comments    Comment[]
   likes       Like[]
   saves       Save[]
@@ -97,59 +91,52 @@ model Document {
   id          String   @id @default(cuid())
   title       String
   slug        String   @unique
-  description String   @db.Text
+  description String
   content     String   @db.Text
   tags        String[]
-  authorId    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId    String
 }
 
 model Bug {
   id        String   @id @default(cuid())
-  content   String   @db.Text
+  content   String
   status    String   @default("OPEN") // e.g., OPEN, IN_PROGRESS, CLOSED
-  authorId  String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
 }
 
 model Comment {
-  id         String   @id @default(cuid())
-  content    String   @db.Text
-  snippetId  String
-  authorId   String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  snippet Snippet @relation(fields: [snippetId], references: [id], onDelete: Cascade)
-  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  snippet   Snippet  @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+  snippetId String
 }
 
 model Like {
   id        String   @id @default(cuid())
-  snippetId String
-  userId    String
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  snippet   Snippet  @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+  snippetId String
 
-  snippet Snippet @relation(fields: [snippetId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, snippetId])
+  @@unique([userId, snippetId], name: "userId_snippetId")
 }
 
 model Save {
   id        String   @id @default(cuid())
-  snippetId String
-  userId    String
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  snippet   Snippet  @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+  snippetId String
 
-  snippet Snippet @relation(fields: [snippetId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, snippetId])
+  @@unique([userId, snippetId], name: "userId_snippetId")
 }
