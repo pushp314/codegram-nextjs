@@ -4,47 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bookmark, Heart, MessageCircle, Share2, Code, Eye } from "lucide-react";
+import { Bookmark, Heart, Share2, Code, Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import components from '@/lib/component-data.json';
 
-const componentCode = `
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+const componentData = components.find(c => c.slug === 'login-form');
 
-export function LoginForm() {
-  return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle className="text-2xl">Login</CardTitle>
-        <CardDescription>
-          Enter your email below to login to your account.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" placeholder="m@example.com" required />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="password">Password</Label>
-          <Input id="password" type="password" required />
-        </div>
-        <Button type="submit" className="w-full">
-            Sign in
-        </Button>
-      </CardContent>
-    </Card>
-  );
+if (!componentData) {
+    return <div>Component not found</div>;
 }
-`;
+
+const { name, description, author, stats, code } = componentData;
 
 export default function ComponentDetailPage() {
   return (
@@ -83,31 +53,31 @@ export default function ComponentDetailPage() {
               </Card>
             </TabsContent>
             <TabsContent value="code">
-                <CodeBlock code={componentCode} language="tsx" />
+                <CodeBlock code={code} language="tsx" />
             </TabsContent>
           </Tabs>
         </div>
         <div className="lg:col-span-1 space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Login Form</CardTitle>
-                    <CardDescription>A clean and simple login form.</CardDescription>
+                    <CardTitle>{name}</CardTitle>
+                    <CardDescription>{description}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center gap-3 mb-4">
                     <Avatar>
-                        <AvatarImage src="https://picsum.photos/seed/creator/40/40" data-ai-hint="man portrait"/>
-                        <AvatarFallback>AU</AvatarFallback>
+                        <AvatarImage src={author.avatar} data-ai-hint={author.avatarHint}/>
+                        <AvatarFallback>{author.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
-                        <p className="font-semibold">Aceternity UI</p>
-                        <p className="text-sm text-muted-foreground">@aceternity</p>
+                        <p className="font-semibold">{author.name}</p>
+                        <p className="text-sm text-muted-foreground">@{author.username}</p>
                     </div>
                     </div>
                     <div className="flex justify-around items-center border-t pt-4">
                         <Button variant="ghost" size="sm" className="flex flex-col h-auto text-muted-foreground">
                             <Heart className="h-5 w-5" />
-                            <span>890</span>
+                            <span>{stats.likes}</span>
                         </Button>
                         <Button variant="ghost" size="sm" className="flex flex-col h-auto text-muted-foreground">
                             <Bookmark className="h-5 w-5" />

@@ -2,45 +2,18 @@ import CodeBlock from "@/components/code-block";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bookmark, Heart, MessageCircle, Share2, Code, Eye } from "lucide-react";
+import { Bookmark, Heart, Share2, Code, Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Image from "next/image";
+import components from '@/lib/component-data.json';
 
-const componentCode = `
-import Image from "next/image";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+const componentData = components.find(c => c.slug === '3d-card-effect');
 
-export function Card3D() {
-  return (
-    <div className="[perspective:1000px]">
-      <Card className="w-full max-w-sm h-auto transform transition-transform duration-500 [transform-style:preserve-3d] hover:[transform:rotateY(15deg)_rotateX(-5deg)]">
-        <CardHeader>
-          <Image
-            src="https://picsum.photos/seed/forest/600/400"
-            alt="Forest"
-            width={600}
-            height={400}
-            className="rounded-lg"
-          />
-        </CardHeader>
-        <CardContent>
-          <CardTitle>Make things float in air</CardTitle>
-          <CardDescription>
-            A card perspective effect, hover over the card to elevate card
-            elements.
-          </CardDescription>
-        </CardContent>
-      </Card>
-    </div>
-  );
+if (!componentData) {
+    return <div>Component not found</div>;
 }
-`;
+
+const { name, description, author, stats, code, image, imageHint } = componentData;
 
 export default function ComponentDetailPage() {
   return (
@@ -59,19 +32,18 @@ export default function ComponentDetailPage() {
                   <Card className="w-full max-w-sm h-auto transform transition-transform duration-500 [transform-style:preserve-3d] hover:[transform:rotateY(15deg)_rotateX(-5deg)]">
                     <CardHeader>
                       <Image
-                        src="https://picsum.photos/seed/forest/600/400"
-                        alt="Forest"
+                        src={image}
+                        alt={name}
                         width={600}
                         height={400}
                         className="rounded-lg"
-                        data-ai-hint="forest"
+                        data-ai-hint={imageHint}
                       />
                     </CardHeader>
                     <CardContent>
-                      <CardTitle>Make things float in air</CardTitle>
+                      <CardTitle>{name}</CardTitle>
                       <CardDescription>
-                        A card perspective effect, hover over the card to elevate card
-                        elements.
+                        {description}
                       </CardDescription>
                     </CardContent>
                   </Card>
@@ -79,31 +51,31 @@ export default function ComponentDetailPage() {
               </Card>
             </TabsContent>
             <TabsContent value="code">
-                <CodeBlock code={componentCode} language="tsx" />
+                <CodeBlock code={code} language="tsx" />
             </TabsContent>
           </Tabs>
         </div>
         <div className="lg:col-span-1 space-y-6">
           <Card>
             <CardHeader>
-                <CardTitle>3D Card Effect</CardTitle>
-                <CardDescription>A card that appears to float and tilt on hover.</CardDescription>
+                <CardTitle>{name}</CardTitle>
+                <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="flex items-center gap-3 mb-4">
                   <Avatar>
-                    <AvatarImage src="https://picsum.photos/seed/creator/40/40" data-ai-hint="man portrait"/>
-                    <AvatarFallback>AU</AvatarFallback>
+                    <AvatarImage src={author.avatar} data-ai-hint={author.avatarHint}/>
+                    <AvatarFallback>{author.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-semibold">Aceternity UI</p>
-                    <p className="text-sm text-muted-foreground">@aceternity</p>
+                    <p className="font-semibold">{author.name}</p>
+                    <p className="text-sm text-muted-foreground">@{author.username}</p>
                   </div>
                 </div>
                 <div className="flex justify-around items-center border-t pt-4">
                     <Button variant="ghost" size="sm" className="flex flex-col h-auto text-muted-foreground">
                         <Heart className="h-5 w-5" />
-                        <span>1.2k</span>
+                        <span>{stats.likes}</span>
                     </Button>
                     <Button variant="ghost" size="sm" className="flex flex-col h-auto text-muted-foreground">
                         <Bookmark className="h-5 w-5" />

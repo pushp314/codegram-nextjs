@@ -1,4 +1,5 @@
 
+
 export interface User {
   id: string;
   username: string;
@@ -35,4 +36,23 @@ export interface Snippet {
   tags: string[];
   isLiked?: boolean;
   isBookmarked?: boolean;
+}
+
+export interface Component {
+  slug: string;
+  name: string;
+  description: string;
+  image: string;
+  imageHint: string;
+  author: {
+    name: string;
+    username: string;
+    avatar: string;
+    avatarHint: string;
+  };
+  stats: {
+    likes: string;
+    saves: string;
+  };
+  code: string;
 }

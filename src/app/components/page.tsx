@@ -1,23 +1,7 @@
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import Image from 'next/image';
-
-const components = [
-  {
-    name: "3D Card Effect",
-    slug: "3d-card-effect",
-    description: "A card that appears to float and tilt on hover, built with Tailwind CSS perspective utilities.",
-    image: "https://picsum.photos/seed/component1/600/400",
-    imageHint: "abstract 3d render"
-  },
-  {
-    name: "Login Form",
-    slug: "login-form",
-    description: "A clean and simple login form component with input fields and a submit button.",
-    image: "https://picsum.photos/seed/component2/600/400",
-    imageHint: "modern login interface"
-  }
-];
+import components from '@/lib/component-data.json';
 
 export default function ComponentsPage() {
   return (
