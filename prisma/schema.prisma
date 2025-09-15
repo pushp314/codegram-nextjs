@@ -10,6 +10,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  bio           String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts   Account[]
+  sessions   Session[]
+  snippets   Snippet[]
+  documents  Document[]
+  comments   Comment[]
+  likes      Like[]
+  saves      Save[]
+  bugs       Bug[]
+  bugUpvotes BugUpvote[]
+
+  followers Follows[] @relation("following")
+  following Follows[] @relation("follower")
+}
+
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -45,62 +69,56 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model User {
-  id              String      @id @default(cuid())
-  name            String?
-  email           String?     @unique
-  emailVerified   DateTime?
-  image           String?
-  bio             String?
-  accounts        Account[]
-  sessions        Session[]
-  snippets        Snippet[]
-  documents       Document[]
-  bugs            Bug[]
-  comments        Comment[]
-  likes           Like[]
-  saves           Save[]
-  followers       Follow[]    @relation("UserFollowers")
-  following       Follow[]    @relation("UserFollowing")
+model Follows {
+  followerId  String
+  followingId String
+  follower    User   @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User   @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
 }
+
 
 model Snippet {
   id          String    @id @default(cuid())
   title       String    @unique
-  description String?
-  code        String
+  description String
+  code        String    @db.Text
   language    String
   authorId    String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  author      User      @relation(fields: [authorId], references: [id])
-  comments    Comment[]
-  likes       Like[]
-  saves       Save[]
+
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments Comment[]
+  likes    Like[]
+  saves    Save[]
 }
 
 model Document {
   id          String   @id @default(cuid())
   title       String
   slug        String   @unique
-  description String?
-  content     String
+  description String
+  content     String   @db.Text
   tags        String[]
   authorId    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  author      User     @relation(fields: [authorId], references: [id])
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
 }
 
 model Bug {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   content   String
-  status    String   @default("OPEN")
+  status    String      @default("OPEN")
   authorId  String
-  createdAt DateTime @default(now())
-  author    User     @relation(fields: [authorId], references: [id])
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  upvotes   BugUpvote[]
 }
-
 
 model Comment {
   id        String   @id @default(cuid())
@@ -108,8 +126,10 @@ model Comment {
   snippetId String
   authorId  String
   createdAt DateTime @default(now())
-  snippet   Snippet  @relation(fields: [snippetId], references: [id])
-  author    User     @relation(fields: [authorId], references: [id])
+  updatedAt DateTime @updatedAt
+
+  snippet Snippet @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
 }
 
 model Like {
@@ -117,5 +137,33 @@ model Like {
   snippetId String
   userId    String
   createdAt DateTime @default(now())
-  snippet   Snippet  @relation(fields: [snippetId], references: [id])
-  user      User     @relation(fields
+
+  snippet Snippet @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, snippetId], name: "userId_snippetId")
+}
+
+model Save {
+  id        String   @id @default(cuid())
+  snippetId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  snippet Snippet @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, snippetId], name: "userId_snippetId")
+}
+
+model BugUpvote {
+  id        String   @id @default(cuid())
+  bugId     String
+  userId    String
+  createdAt DateTime @default(now())
+
+  bug  Bug  @relation(fields: [bugId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bugId])
+}
