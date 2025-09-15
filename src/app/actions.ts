@@ -884,3 +884,21 @@ export async function getUserProfile(userId: string): Promise<(UserWithFollows &
 
     return { ...user, isFollowing };
 }
+
+export async function updateUserProfileAction(data: { name: string; bio: string; }) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        throw new Error('You must be logged in to update your profile.');
+    }
+    
+    await prisma.user.update({
+        where: { id: session.user.id },
+        data: {
+            name: data.name,
+            bio: data.bio,
+        }
+    });
+
+    revalidatePath(`/profile/${session.user.id}`);
+    revalidatePath('/settings');
+}

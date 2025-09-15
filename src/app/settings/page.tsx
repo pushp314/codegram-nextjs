@@ -1,4 +1,5 @@
 
+
 import {
   Card,
   CardContent,
@@ -9,15 +10,47 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import EditProfileForm from "./edit-profile-form";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
 
 
-export default function SettingsPage() {
+async function getUserData(userId: string) {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+            name: true,
+            email: true,
+            bio: true,
+            image: true,
+        }
+    });
+    return user;
+}
+
+
+export default async function SettingsPage() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect('/login');
+  }
+
+  const user = await getUserData(session.user.id);
+  if (!user) {
+    redirect('/login');
+  }
+
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
         <div className="mb-8">
             <h1 className="font-headline text-3xl mb-2">Settings</h1>
-            <p className="text-muted-foreground">Manage your account, theme, and preferences.</p>
+            <p className="text-muted-foreground">Manage your account and profile settings.</p>
         </div>
+        
+        <EditProfileForm user={user} />
+
+        <Separator className="my-8" />
 
         <Card>
             <CardHeader>
