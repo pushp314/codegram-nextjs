@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from './ui/button';
 import React from 'react';
+import ProfileLink from './profile-link';
 
 const navItems = [
   { href: '/', icon: Home, label: 'Home' },
@@ -19,8 +20,6 @@ const navItems = [
   { href: '/playground', icon: Code, label: 'Playground' },
   { href: '/convert', icon: GitFork, label: 'Convert' },
   { href: '/saved', icon: Bookmark, label: 'Saved' },
-  { href: '/profile', icon: User, label: 'Profile' },
-  { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export default function MobileSidebar() {
@@ -59,6 +58,27 @@ export default function MobileSidebar() {
               {item.label}
             </Link>
           ))}
+          <ProfileLink 
+            onClick={() => setIsOpen(false)}
+            className={cn(
+              'flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground',
+              pathname.startsWith('/profile') && 'text-foreground'
+            )}
+          >
+            <User className="h-5 w-5" />
+            Profile
+          </ProfileLink>
+           <Link
+              href="/settings"
+              onClick={() => setIsOpen(false)}
+              className={cn(
+                'flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground',
+                pathname === '/settings' && 'text-foreground'
+              )}
+            >
+              <Settings className="h-5 w-5" />
+              Settings
+            </Link>
         </nav>
       </SheetContent>
     </Sheet>

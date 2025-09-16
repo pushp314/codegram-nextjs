@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
@@ -15,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import ProfileLink from './profile-link';
 
 export default function UserAuthNav() {
   const { data: session, status } = useSession();
@@ -56,10 +58,10 @@ export default function UserAuthNav() {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
-            <Link href="/profile">
+            <ProfileLink>
               <UserIcon className="mr-2" />
               <span>Profile</span>
-            </Link>
+            </ProfileLink>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

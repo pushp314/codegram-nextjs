@@ -7,6 +7,7 @@ import { Code, FileText, Home, Settings, User, Compass, Bookmark, Bug, Bot, Shop
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from './theme-toggle';
+import ProfileLink from './profile-link';
 
 const navItems = [
   { href: '/', icon: Home, label: 'Home' },
@@ -75,13 +76,12 @@ export default function DesktopSidebar() {
             </Tooltip>
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <Link
-                  href="/profile"
-                  className={cn("flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8", pathname === '/profile' && 'bg-accent text-accent-foreground')}
+                <ProfileLink
+                  className={cn("flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8", pathname.startsWith('/profile') && 'bg-accent text-accent-foreground')}
                 >
                   <User className="h-5 w-5" />
                   <span className="sr-only">Profile</span>
-                </Link>
+                </ProfileLink>
               </TooltipTrigger>
               <TooltipContent side="right">Profile</TooltipContent>
             </Tooltip>
