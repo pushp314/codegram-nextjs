@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -9,10 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState, useTransition } from 'react';
-import { generateSnippetAction, createSnippetAction } from '@/app/actions';
+import { generateSnippetAction, createSnippetAction, updateSnippetAction } from '@/app/actions';
 import { Wand2, Loader2, PartyPopper } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import type { Snippet } from '@prisma/client';
 
 const languages = ['tsx', 'jsx', 'javascript', 'typescript', 'html', 'css', 'python', 'go', 'java', 'csharp'];
 
@@ -24,19 +26,25 @@ const formSchema = z.object({
   aiDescription: z.string().optional(),
 });
 
-export default function CreateSnippetForm() {
+type CreateSnippetFormProps = {
+  snippet?: Snippet;
+};
+
+export default function CreateSnippetForm({ snippet }: CreateSnippetFormProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, startSubmitting] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
 
+  const isEditMode = !!snippet;
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: '',
-      description: '',
-      code: '',
-      language: 'javascript',
+      title: snippet?.title || '',
+      description: snippet?.description || '',
+      code: snippet?.code || '',
+      language: snippet?.language || 'javascript',
       aiDescription: '',
     },
   });
@@ -74,27 +82,31 @@ export default function CreateSnippetForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     startSubmitting(async () => {
       try {
-        await createSnippetAction({
-            title: values.title,
-            description: values.description,
-            code: values.code,
-            language: values.language,
-        });
-        toast({
-            title: 'Snippet Published!',
-            description: 'Your snippet is now live for the community to see.',
-            action: (
-              <div className="bg-green-500 text-white p-2 rounded-full">
-                <PartyPopper />
-              </div>
-            )
-        });
-        router.push('/');
+        if (isEditMode) {
+            await updateSnippetAction(snippet.id, values);
+            toast({
+                title: 'Snippet Updated!',
+                description: 'Your changes have been saved successfully.',
+            });
+            router.push('/');
+        } else {
+            await createSnippetAction(values);
+            toast({
+                title: 'Snippet Published!',
+                description: 'Your snippet is now live for the community to see.',
+                action: (
+                  <div className="bg-green-500 text-white p-2 rounded-full">
+                    <PartyPopper />
+                  </div>
+                )
+            });
+            router.push('/');
+        }
       } catch (error) {
          console.error(error);
         toast({
             variant: 'destructive',
-            title: 'Failed to Publish',
+            title: isEditMode ? 'Update Failed' : 'Failed to Publish',
             description: error instanceof Error ? error.message : 'An unknown error occurred.',
         });
       }
@@ -104,29 +116,31 @@ export default function CreateSnippetForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <div className="p-6 border rounded-2xl bg-muted/20 space-y-4">
-          <h3 className="font-headline text-lg">✨ AI Code Generation</h3>
-          <FormField
-            control={form.control}
-            name="aiDescription"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Describe what you want to build</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="e.g., 'A React hook to fetch data with loading and error states'"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button type="button" onClick={handleGenerateCode} disabled={isGenerating}>
-            {isGenerating ? <Loader2 className="animate-spin" /> : <Wand2 />}
-            Generate Code
-          </Button>
-        </div>
+        {!isEditMode && (
+            <div className="p-6 border rounded-2xl bg-muted/20 space-y-4">
+            <h3 className="font-headline text-lg">✨ AI Code Generation</h3>
+            <FormField
+                control={form.control}
+                name="aiDescription"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Describe what you want to build</FormLabel>
+                    <FormControl>
+                    <Textarea
+                        placeholder="e.g., 'A React hook to fetch data with loading and error states'"
+                        {...field}
+                    />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+            <Button type="button" onClick={handleGenerateCode} disabled={isGenerating}>
+                {isGenerating ? <Loader2 className="animate-spin" /> : <Wand2 />}
+                Generate Code
+            </Button>
+            </div>
+        )}
 
         <FormField
           control={form.control}
@@ -205,7 +219,7 @@ export default function CreateSnippetForm() {
 
         <Button type="submit" className="w-full text-lg h-12" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="animate-spin mr-2" />}
-          Publish Snippet
+          {isEditMode ? 'Save Changes' : 'Publish Snippet'}
         </Button>
       </form>
     </Form>

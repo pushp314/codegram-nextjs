@@ -11,6 +11,7 @@ import { auth } from '@/lib/auth';
 import type { Snippet, Document, Bug, User, DocumentComment, SnippetComment, Notification, Component, UserWithFollows } from '@/lib/types';
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 
 function slugify(text: string) {
   return text
@@ -56,6 +57,58 @@ export async function createSnippetAction(data: { title: string; description: st
   revalidatePath('/profile');
 }
 
+
+export async function updateSnippetAction(snippetId: string, data: { title: string; description: string; code: string; language: string; }) {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+        throw new Error('You must be logged in to update a snippet.');
+    }
+
+    const snippet = await prisma.snippet.findUnique({
+        where: { id: snippetId },
+        select: { authorId: true },
+    });
+
+    if (!snippet || snippet.authorId !== userId) {
+        throw new Error('You are not authorized to update this snippet.');
+    }
+
+    await prisma.snippet.update({
+        where: { id: snippetId },
+        data,
+    });
+
+    revalidatePath('/');
+    revalidatePath(`/snippets/${snippetId}`);
+    revalidatePath(`/profile/${userId}`);
+}
+
+export async function deleteSnippetAction(snippetId: string) {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+        throw new Error('You must be logged in to delete a snippet.');
+    }
+
+    const snippet = await prisma.snippet.findUnique({
+        where: { id: snippetId },
+        select: { authorId: true },
+    });
+
+    if (!snippet || snippet.authorId !== userId) {
+        throw new Error('You are not authorized to delete this snippet.');
+    }
+
+    await prisma.snippet.delete({
+        where: { id: snippetId },
+    });
+
+    revalidatePath('/');
+    revalidatePath(`/profile/${userId}`);
+}
+
+
 export async function createDocAction(data: { title: string; description: string; content: string; tags: string; }) {
     const session = await auth();
     if (!session?.user?.id) {
@@ -79,6 +132,67 @@ export async function createDocAction(data: { title: string; description: string
     revalidatePath('/docs');
     revalidatePath(`/profile/${session.user.id}`);
     return { slug };
+}
+
+export async function updateDocumentAction(docId: string, data: { title: string; description: string; content: string; tags: string; }) {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+        throw new Error('You must be logged in to update a document.');
+    }
+    
+    const document = await prisma.document.findUnique({
+        where: { id: docId },
+        select: { authorId: true },
+    });
+
+    if (!document || document.authorId !== userId) {
+        throw new Error('You are not authorized to update this document.');
+    }
+
+    const tagsArray = data.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+    const newSlug = slugify(data.title);
+    
+    await prisma.document.update({
+        where: { id: docId },
+        data: {
+            title: data.title,
+            slug: newSlug,
+            description: data.description,
+            content: data.content,
+            tags: tagsArray,
+        },
+    });
+
+    revalidatePath('/docs');
+    revalidatePath(`/docs/${newSlug}`);
+    revalidatePath(`/profile/${userId}`);
+    return { slug: newSlug };
+}
+
+export async function deleteDocumentAction(docId: string) {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+        throw new Error('You must be logged in to delete a document.');
+    }
+    
+    const document = await prisma.document.findUnique({
+        where: { id: docId },
+        select: { authorId: true },
+    });
+
+    if (!document || document.authorId !== userId) {
+        throw new Error('You are not authorized to delete this document.');
+    }
+
+    await prisma.document.delete({
+        where: { id: docId },
+    });
+
+    revalidatePath('/docs');
+    revalidatePath(`/profile/${userId}`);
+    // Redirect after deletion, handled on client
 }
 
 export async function createBugAction(content: string) {
@@ -226,6 +340,18 @@ export async function toggleFollowAction(authorId: string) {
     revalidatePath('/community');
 }
 
+export async function getSnippetById(id: string) {
+  try {
+    const snippet = await prisma.snippet.findUnique({
+      where: { id },
+      include: { author: true }
+    });
+    return snippet;
+  } catch (error) {
+    console.error('[getSnippetById Error]', error);
+    return null;
+  }
+}
 
 export async function getSnippetsAction({ page = 0, limit = 3, authorId }: { page: number; limit: number, authorId?: string }): Promise<{ snippets: Snippet[], hasMore: boolean } | { error: string }> {
   try {
@@ -381,10 +507,10 @@ export async function getSavedSnippetsAction({ page = 0, limit = 4, userId }: { 
 export async function getDocumentsAction({ query }: { query?: string }): Promise<Document[] | null> {
     try {
         const whereClause = query ? {
-            title: {
-                contains: query,
-                mode: 'insensitive' as const
-            }
+            OR: [
+                { title: { contains: query, mode: 'insensitive' } },
+                { description: { contains: query, mode: 'insensitive' } },
+            ]
         } : {};
 
         const documents = await prisma.document.findMany({

@@ -4,7 +4,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bookmark, Heart, MessageCircle, Wand2, Code, Eye } from 'lucide-react';
+import { Bookmark, Heart, MessageCircle, Wand2, Code, Eye, MoreHorizontal, Edit, Trash2, Loader2 } from 'lucide-react';
 import CodeBlock from './code-block';
 import { Badge } from './ui/badge';
 import {
@@ -15,6 +15,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useState, useTransition } from 'react';
 import { explainCodeSnippet } from '@/ai/flows/explain-code-snippet';
 import { useToast } from '@/hooks/use-toast';
@@ -23,7 +25,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import LiveComponent from './live-component';
 import type { Snippet } from '@/lib/types';
-import { toggleLikeAction, toggleSaveAction } from '@/app/actions';
+import { toggleLikeAction, toggleSaveAction, deleteSnippetAction } from '@/app/actions';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { SnippetDetailSheet } from './snippet-detail-sheet';
@@ -44,12 +46,14 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
   
   const [isLikePending, startLikeTransition] = useTransition();
   const [isSavePending, startSaveTransition] = useTransition();
+  const [isDeletePending, startDeleteTransition] = useTransition();
 
   const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
   
   const { data: session } = useSession();
   const router = useRouter();
 
+  const isAuthor = session?.user?.id === author.id;
 
   const handleExplainCode = async () => {
     if (explanation) {
@@ -73,25 +77,26 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
     }
   };
 
-  const handleLike = () => {
+  const handleAction = (action: () => Promise<void>, startTransition: React.TransitionStartFunction) => {
     if (!session) {
       router.push('/login');
       return;
     }
-    startLikeTransition(async () => {
-      await toggleLikeAction(id);
-    });
+    startTransition(action);
   };
-  
-  const handleSave = () => {
-    if (!session) {
-      router.push('/login');
-      return;
+
+  const handleLike = () => handleAction(() => toggleLikeAction(id), startLikeTransition);
+  const handleSave = () => handleAction(() => toggleSaveAction(id), startSaveTransition);
+  const handleDelete = () => handleAction(async () => {
+    try {
+      await deleteSnippetAction(id);
+      toast({ title: 'Snippet deleted' });
+      // The revalidation will handle UI update
+    } catch (error) {
+       toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete snippet.' });
     }
-     startSaveTransition(async () => {
-      await toggleSaveAction(id);
-    });
-  };
+  }, startDeleteTransition);
+
 
   const isComponent = language === 'jsx' || language === 'tsx' || language === 'html';
 
@@ -109,7 +114,7 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
     <>
     <Card className="flex flex-col rounded-xl">
       <CardHeader>
-        <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between gap-3">
           <Link href={`/profile/${author.id}`} className="flex items-center gap-3 group">
             <Avatar className="h-10 w-10">
                 <AvatarImage src={authorImage} alt={authorName} />
@@ -120,6 +125,48 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
                 <p className="text-sm text-muted-foreground">@{authorEmail}</p>
             </div>
           </Link>
+          
+          {isAuthor && (
+            <AlertDialog>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/snippets/${id}/edit`}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem className="text-destructive focus:text-destructive">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete your snippet.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} disabled={isDeletePending}>
+                    {isDeletePending && <Loader2 className="animate-spin mr-2"/>}
+                    Continue
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
          <CardTitle className="font-headline text-xl pt-4">{title}</CardTitle>
       </CardHeader>

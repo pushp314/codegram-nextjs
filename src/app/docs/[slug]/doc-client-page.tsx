@@ -4,12 +4,13 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Bookmark, MessageCircle, Heart, Share2, MoreVertical, Flag, ShieldBan, UserCheck, UserPlus, Loader2, Code, Eye } from 'lucide-react';
+import { Bookmark, MessageCircle, Heart, Share2, MoreVertical, Flag, ShieldBan, UserCheck, UserPlus, Loader2, Edit, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import CodeBlock from '@/components/code-block';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useState, useEffect, useTransition } from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
@@ -17,12 +18,12 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TracingBeam } from '@/components/ui/tracing-beam';
 import { format } from 'date-fns';
-import { toggleFollowAction, toggleDocumentLikeAction, toggleDocumentSaveAction, type FullDocument } from '@/app/actions';
+import { toggleFollowAction, toggleDocumentLikeAction, toggleDocumentSaveAction, deleteDocumentAction, type FullDocument } from '@/app/actions';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { DocDetailSheet } from '@/components/doc-detail-sheet';
-
+import Link from 'next/link';
 
 function slugify(text: string) {
     if (!text) return '';
@@ -38,12 +39,15 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
   const [isFollowPending, startFollowTransition] = useTransition();
   const [isLikePending, startLikeTransition] = useTransition();
   const [isSavePending, startSaveTransition] = useTransition();
+  const [isDeletePending, startDeleteTransition] = useTransition();
   
   const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
 
   const { data: session } = useSession();
   const router = useRouter();
   const { toast } = useToast();
+
+  const isAuthor = session?.user?.id === doc.author.id;
 
   useEffect(() => {
     if (doc) {
@@ -60,7 +64,6 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
   useEffect(() => {
     setDoc(initialDoc);
   }, [initialDoc]);
-
 
   useEffect(() => {
     setIsScrolled(!inView);
@@ -109,6 +112,11 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
       await toggleDocumentSaveAction(doc.id);
   }, startSaveTransition);
 
+  const handleDelete = () => handleAction(async () => {
+      await deleteDocumentAction(doc.id);
+      toast({ title: 'Document deleted' });
+      router.push('/docs');
+  }, startDeleteTransition);
 
   const SocialButton = ({ icon: Icon, children, tooltip, onClick, pending, active }: { icon: React.ElementType, children?: React.ReactNode, tooltip: string, onClick?: () => void, pending?: boolean, active?: boolean }) => (
     <TooltipProvider delayDuration={0}>
@@ -144,8 +152,39 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
 
         <div className="lg:w-3/4">
             <div className="prose prose-lg dark:prose-invert max-w-none bg-transparent">
-                <h1>{doc.title}</h1>
-                <p className="text-muted-foreground">Published on {format(new Date(doc.createdAt), 'MMMM d, yyyy')} • 5 min read</p>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <h1>{doc.title}</h1>
+                        <p className="text-muted-foreground">Published on {format(new Date(doc.createdAt), 'MMMM d, yyyy')} • 5 min read</p>
+                    </div>
+                    {isAuthor && (
+                        <div className="flex items-center gap-2 mt-2 not-prose">
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={`/docs/${doc.slug}/edit`}><Edit className="mr-2 h-4 w-4" /> Edit</Link>
+                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Delete</Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete your document.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleDelete} disabled={isDeletePending}>
+                                            {isDeletePending && <Loader2 className="animate-spin mr-2"/>}
+                                            Continue
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                    )}
+                </div>
             </div>
             
             <div ref={ref} className="h-px" /> 
