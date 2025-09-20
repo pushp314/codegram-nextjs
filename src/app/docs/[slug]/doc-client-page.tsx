@@ -11,7 +11,7 @@ import CodeBlock from '@/components/code-block';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import { cn } from '@/lib/utils';
@@ -42,6 +42,9 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
   const [isDeletePending, startDeleteTransition] = useTransition();
   
   const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
+  
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const { data: session } = useSession();
   const router = useRouter();
@@ -68,6 +71,32 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
   useEffect(() => {
     setIsScrolled(!inView);
   }, [inView]);
+
+  useEffect(() => {
+    const headingElements = toc.map(({ id }) => document.getElementById(id)).filter(Boolean);
+
+    const handleScroll = () => {
+        const scrollPosition = window.scrollY + 200; 
+
+        let currentActiveId = null;
+
+        for (const heading of headingElements) {
+            if (heading && heading.offsetTop <= scrollPosition) {
+                currentActiveId = heading.id;
+            } else {
+                break;
+            }
+        }
+        setActiveHeadingId(currentActiveId);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    handleScroll();
+
+    return () => {
+        window.removeEventListener('scroll', handleScroll);
+    };
+}, [toc]);
 
   const handleAction = async (action: () => Promise<void>, startTransition: React.TransitionStartFunction) => {
     if (!session?.user) {
@@ -158,13 +187,30 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
     </Button>
   );
 
+  const TableOfContents = () => (
+    <Card className="bg-card/50 backdrop-blur-sm">
+        <CardHeader>
+            <CardTitle className="font-headline text-xl">Table of Contents</CardTitle>
+        </CardHeader>
+        <CardContent>
+           <ul className="space-y-3 text-sm text-muted-foreground">
+                {toc.map(({level, text, id}) => (
+                    <li key={id} style={{ paddingLeft: `${(level - 2) * 1}rem` }}>
+                        <a href={`#${id}`} className={cn("hover:text-primary transition-colors", activeHeadingId === id && "text-primary font-medium")}>{text}</a>
+                    </li>
+                ))}
+            </ul>
+        </CardContent>
+    </Card>
+  );
+
   return (
     <>
     <TracingBeam className="px-6">
-    <div className="container mx-auto max-w-7xl px-4 py-8">
-      <div className="flex flex-col lg:flex-row gap-12">
+    <div className="container mx-auto max-w-screen-2xl px-4 py-8">
+      <div className="grid grid-cols-12 gap-12">
 
-        <div className="lg:w-3/4">
+        <main ref={contentRef} className="col-span-12 lg:col-span-8 xl:col-span-9">
             <div className="prose prose-lg dark:prose-invert max-w-none bg-transparent">
                 <div className="flex justify-between items-start">
                     <div>
@@ -247,20 +293,7 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
             </motion.div>
             
             <aside className="my-6 lg:hidden">
-                <Card className="bg-card/50 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle className="font-headline text-xl">Table of Contents</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                       <ul className="space-y-3 text-sm text-muted-foreground">
-                            {toc.map(({level, text, id}) => (
-                                <li key={id} style={{ paddingLeft: `${(level - 2) * 1}rem` }}>
-                                    <a href={`#${id}`} className="hover:text-primary transition-colors">{text}</a>
-                                </li>
-                            ))}
-                        </ul>
-                    </CardContent>
-                </Card>
+                <TableOfContents />
             </aside>
 
           <article className="prose prose-lg dark:prose-invert max-w-none pt-6 bg-transparent">
@@ -319,23 +352,10 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
                 </CardContent>
             </Card>
 
-        </div>
+        </main>
 
-        <aside className="hidden lg:block lg:w-1/4 space-y-6 lg:sticky lg:top-24 lg:self-start">
-            <Card className="bg-card/50 backdrop-blur-sm">
-                <CardHeader>
-                    <CardTitle className="font-headline text-xl">Table of Contents</CardTitle>
-                </CardHeader>
-                <CardContent>
-                   <ul className="space-y-3 text-sm text-muted-foreground">
-                        {toc.map(({level, text, id}) => (
-                            <li key={id} style={{ paddingLeft: `${(level - 2) * 1}rem` }}>
-                                <a href={`#${id}`} className="hover:text-primary transition-colors">{text}</a>
-                            </li>
-                        ))}
-                    </ul>
-                </CardContent>
-            </Card>
+        <aside className="hidden lg:block col-span-4 xl:col-span-3 space-y-6 lg:sticky lg:top-24 lg:self-start">
+            <TableOfContents />
         </aside>
 
       </div>
