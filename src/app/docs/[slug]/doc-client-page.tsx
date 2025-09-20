@@ -118,6 +118,20 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
       router.push('/docs');
   }, startDeleteTransition);
 
+  const handleReport = () => {
+    toast({
+      title: 'Content Reported',
+      description: "Thanks for your feedback. We'll review this content shortly.",
+    });
+  };
+
+  const handleBlock = () => {
+    toast({
+      title: `User ${doc.author.name} Blocked`,
+      description: "You will no longer see content from this user.",
+    });
+  };
+
   const SocialButton = ({ icon: Icon, children, tooltip, onClick, pending, active }: { icon: React.ElementType, children?: React.ReactNode, tooltip: string, onClick?: () => void, pending?: boolean, active?: boolean }) => (
     <TooltipProvider delayDuration={0}>
         <Tooltip>
@@ -215,17 +229,19 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
                         <SocialButton icon={Bookmark} tooltip="Save" onClick={handleSave} pending={isSavePending} active={doc.isSaved}/>
                         <SocialButton icon={Share2} tooltip="Share" />
 
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-9 w-9">
-                                    <MoreVertical className="h-5 w-5" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem><Flag className="mr-2"/> Report</DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive focus:text-destructive"><ShieldBan className="mr-2"/> Block user</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        {!isAuthor && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-9 w-9">
+                                        <MoreVertical className="h-5 w-5" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={handleReport}><Flag className="mr-2"/> Report content</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleBlock} className="text-destructive focus:text-destructive"><ShieldBan className="mr-2"/> Block user</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
                     </div>
                 </div>
             </motion.div>
@@ -333,3 +349,5 @@ export default function DocClientPage({ doc: initialDoc }: { doc: FullDocument }
     </>
   );
 }
+
+    

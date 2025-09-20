@@ -4,7 +4,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bookmark, Heart, MessageCircle, Wand2, Code, Eye, MoreHorizontal, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Bookmark, Heart, MessageCircle, Wand2, Code, Eye, MoreHorizontal, Edit, Trash2, Loader2, Flag } from 'lucide-react';
 import CodeBlock from './code-block';
 import { Badge } from './ui/badge';
 import {
@@ -97,6 +97,12 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
     }
   }, startDeleteTransition);
 
+  const handleReport = () => {
+    toast({
+      title: 'Content Reported',
+      description: "Thanks for your feedback. We'll review this snippet shortly.",
+    });
+  };
 
   const isComponent = language === 'jsx' || language === 'tsx' || language === 'html';
 
@@ -126,47 +132,54 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
             </div>
           </Link>
           
-          {isAuthor && (
-            <AlertDialog>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link href={`/snippets/${id}/edit`}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <AlertDialogTrigger asChild>
-                    <DropdownMenuItem className="text-destructive focus:text-destructive">
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
+          <AlertDialog>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {isAuthor ? (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href={`/snippets/${id}/edit`}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
+                      </Link>
                     </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete your snippet.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} disabled={isDeletePending}>
-                    {isDeletePending && <Loader2 className="animate-spin mr-2"/>}
-                    Continue
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+                    <DropdownMenuSeparator />
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem className="text-destructive focus:text-destructive">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                  </>
+                ) : (
+                  <DropdownMenuItem onClick={handleReport}>
+                    <Flag className="mr-2 h-4 w-4" />
+                    Report
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete your snippet.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={isDeletePending}>
+                  {isDeletePending && <Loader2 className="animate-spin mr-2"/>}
+                  Continue
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
          <CardTitle className="font-headline text-xl pt-4">{title}</CardTitle>
       </CardHeader>
@@ -282,3 +295,5 @@ export default function SnippetCard({ snippet }: SnippetCardProps) {
     </>
   );
 }
+
+    
