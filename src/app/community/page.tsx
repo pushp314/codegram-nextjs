@@ -8,9 +8,9 @@ import { auth } from "@/lib/auth";
 export default async function CommunityPage({
   searchParams,
 }: {
-  searchParams?: { query?: string };
+  searchParams: { query?: string };
 }) {
-  const query = searchParams?.query || "";
+  const query = searchParams.query || "";
   const users = await getUsersAction({ query });
   const session = await auth();
 
