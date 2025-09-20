@@ -176,46 +176,122 @@ const docs = [
     },
 ];
 
+
+const components = [
+    {
+        name: "3D Card Effect",
+        slug: "3d-card-effect",
+        description: "A card that reveals a 3D effect on hover, perfect for portfolio items or feature showcases.",
+        authorId: "user_1",
+        code: `
+import Image from "next/image";
+import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+
+export function ThreeDCard() {
+  return (
+    <div className="[perspective:1000px] w-full max-w-sm">
+      <Card className="h-auto transform transition-transform duration-500 [transform-style:preserve-3d] hover:[transform:rotateY(15deg)_rotateX(-5deg)]">
+        <CardHeader>
+          <Image
+            src="https://picsum.photos/seed/3d-card/600/400"
+            alt="3D Card"
+            width={600}
+            height={400}
+            className="rounded-lg"
+            data-ai-hint="abstract design"
+          />
+        </CardHeader>
+        <CardContent>
+          <CardTitle>3D Card Effect</CardTitle>
+          <CardDescription>
+            Hover over this card to see the 3D effect in action.
+          </CardDescription>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default ThreeDCard;`
+    },
+    {
+        name: "Login Form",
+        slug: "login-form",
+        description: "A clean and modern login form with email and password fields.",
+        authorId: "user_2",
+        code: `
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+export function LoginForm() {
+  return (
+    <Card className="w-full max-w-sm">
+        <CardHeader>
+            <CardTitle className="text-2xl">Login</CardTitle>
+            <CardDescription>
+            Enter your email below to login to your account.
+            </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+            <div className="grid gap-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" placeholder="m@example.com" required />
+            </div>
+            <div className="grid gap-2">
+            <Label htmlFor="password">Password</Label>
+            <Input id="password" type="password" required />
+            </div>
+            <Button type="submit" className="w-full">
+                Sign in
+            </Button>
+        </CardContent>
+    </Card>
+  );
+}
+
+export default LoginForm;`
+    },
+];
+
 async function main() {
   console.log('Start seeding...');
 
   for (const u of users) {
-    const user = await prisma.user.upsert({
+    await prisma.user.upsert({
       where: { email: u.email },
       update: {},
       create: u,
     });
-    console.log(`Created/updated user with id: ${user.id}`);
+    console.log(`Created/updated user with id: ${u.id}`);
   }
 
   for (const s of snippets) {
-    const existingSnippet = await prisma.snippet.findFirst({
-        where: { title: s.title },
+    await prisma.snippet.upsert({
+      where: { title: s.title },
+      update: {},
+      create: s,
     });
-
-    if (!existingSnippet) {
-        const snippet = await prisma.snippet.create({
-            data: s,
-        });
-        console.log(`Created snippet with id: ${snippet.id}`);
-    } else {
-        console.log(`Snippet with title "${s.title}" already exists. Skipping.`);
-    }
+     console.log(`Created/updated snippet with title: ${s.title}`);
   }
 
   for (const d of docs) {
-    const existingDoc = await prisma.document.findFirst({
-        where: { slug: d.slug },
+     await prisma.document.upsert({
+      where: { slug: d.slug },
+      update: {},
+      create: d,
     });
+    console.log(`Created/updated document with slug: ${d.slug}`);
+  }
 
-    if (!existingDoc) {
-        const document = await prisma.document.create({
-            data: d,
-        });
-        console.log(`Created document with id: ${document.id}`);
-    } else {
-        console.log(`Document with slug "${d.slug}" already exists. Skipping.`);
-    }
+  for (const c of components) {
+    await prisma.component.upsert({
+        where: { slug: c.slug },
+        update: {},
+        create: c,
+    });
+    console.log(`Created/updated component with slug: ${c.slug}`);
   }
 
   console.log('Seeding finished.');
@@ -229,5 +305,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-    
