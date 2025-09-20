@@ -43,7 +43,7 @@ function DocSkeleton() {
 
 function EmptyState({ type }: { type: 'snippets' | 'docs' }) {
   return (
-    <Card className="flex flex-col items-center justify-center text-center p-12 h-96 border-dashed mt-6">
+    <Card className="flex flex-col items-center justify-center text-center p-12 h-96 border-dashed mt-6 col-span-full">
       <CardHeader>
         <div className="mx-auto mb-4 bg-primary/10 p-3 rounded-full">
           <Bookmark className="h-8 w-8 text-primary" />
@@ -114,12 +114,15 @@ function PaginatedSavedList({ userId, itemType }: { userId: string; itemType: 's
 
     const gridClass = itemType === 'snippets' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
 
+    if (items.length === 0 && !loading) {
+        return <EmptyState type={itemType} />;
+    }
+
     return (
         <div className={`grid ${gridClass} gap-6 mt-6`}>
             {renderItems()}
             {loading && Array.from({ length: ITEMS_PER_PAGE / 2 }).map((_, i) => itemType === 'snippets' ? <SnippetSkeleton key={i} /> : <DocSkeleton key={i} />)}
             <div ref={ref} className="h-10 col-span-full" />
-            {items.length === 0 && !loading && <EmptyState type={itemType} />}
         </div>
     );
 }

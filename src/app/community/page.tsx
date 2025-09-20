@@ -4,6 +4,7 @@ import SearchBar from "./search-bar";
 import UserCard from "@/components/user-card";
 import { Users } from "lucide-react";
 import { auth } from "@/lib/auth";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function CommunityPage({
   searchParams,
@@ -43,9 +44,15 @@ export default async function CommunityPage({
           ))}
         </div>
       ) : (
-        <div className="text-center py-16">
-          <p className="text-muted-foreground">No users found matching your search.</p>
-        </div>
+        <Card className="flex flex-col items-center justify-center text-center p-12 h-96 border-dashed col-span-full">
+            <CardHeader>
+                <div className="mx-auto mb-4 bg-primary/10 p-3 rounded-full">
+                    <Users className="h-8 w-8 text-primary" />
+                </div>
+                <CardTitle>No Users Found</CardTitle>
+                <CardDescription className="text-muted-foreground">No users matched your search. Try a different query.</CardDescription>
+            </CardHeader>
+        </Card>
       )}
     </div>
   );

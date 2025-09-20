@@ -8,6 +8,7 @@ import { getDocumentsAction } from '../actions';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import SearchBar from './search-bar';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default async function DocsPage({
   searchParams,
@@ -53,16 +54,20 @@ export default async function DocsPage({
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 border border-dashed rounded-lg">
-            <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-medium">No documents found</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-                No documents matched your search. Try a different query or create the first one!
-            </p>
-            <Button asChild className="mt-6">
-                <Link href="/docs/create">Create Document</Link>
-            </Button>
-        </div>
+        <Card className="flex flex-col items-center justify-center text-center p-12 h-96 border-dashed col-span-full">
+            <CardHeader>
+                <div className="mx-auto mb-4 bg-primary/10 p-3 rounded-full">
+                    <FileText className="h-8 w-8 text-primary" />
+                </div>
+                <CardTitle>No Documents Found</CardTitle>
+                <CardDescription className="text-muted-foreground">
+                    No documents matched your search. Be the first to create one!
+                </CardDescription>
+                <Button asChild className="mt-4">
+                    <Link href="/docs/create">Create Document</Link>
+                </Button>
+            </CardHeader>
+        </Card>
       )}
     </div>
   );

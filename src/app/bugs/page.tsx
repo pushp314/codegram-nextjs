@@ -5,6 +5,9 @@ import BugCard from '@/components/bug-card';
 import { formatDistanceToNow } from 'date-fns';
 import CreateBugForm from '@/components/create-bug-form';
 import { auth } from '@/lib/auth';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default async function BugsPage() {
   const bugs = await getBugsAction();
@@ -21,23 +24,35 @@ export default async function BugsPage() {
       </div>
 
       <div className="space-y-6">
-        {bugs && bugs.map((bug) => (
-          <BugCard
-            key={bug.id}
-            bugId={bug.id}
-            authorId={bug.author.id}
-            authorName={bug.author.name || 'Anonymous'}
-            authorImage={bug.author.image || ''}
-            authorImageHint="developer portrait"
-            timestamp={formatDistanceToNow(new Date(bug.createdAt), { addSuffix: true })}
-            content={bug.content}
-            upvotes={bug.upvotes_count}
-            comments={bug.comments_count}
-            tags={[bug.status.toLowerCase(), 'bug']}
-            isUpvoted={bug.isUpvoted}
-            isLoggedIn={!!session?.user}
-          />
-        ))}
+        {bugs && bugs.length > 0 ? (
+          bugs.map((bug) => (
+            <BugCard
+              key={bug.id}
+              bugId={bug.id}
+              authorId={bug.author.id}
+              authorName={bug.author.name || 'Anonymous'}
+              authorImage={bug.author.image || ''}
+              authorImageHint="developer portrait"
+              timestamp={formatDistanceToNow(new Date(bug.createdAt), { addSuffix: true })}
+              content={bug.content}
+              upvotes={bug.upvotes_count}
+              comments={bug.comments_count}
+              tags={[bug.status.toLowerCase(), 'bug']}
+              isUpvoted={bug.isUpvoted}
+              isLoggedIn={!!session?.user}
+            />
+          ))
+        ) : (
+            <Card className="flex flex-col items-center justify-center text-center p-12 h-96 border-dashed">
+                <CardHeader>
+                    <div className="mx-auto mb-4 bg-primary/10 p-3 rounded-full">
+                        <Bug className="h-8 w-8 text-primary" />
+                    </div>
+                    <CardTitle>No Bugs Reported</CardTitle>
+                    <CardDescription className="text-muted-foreground">Everything looks stable! Be the first to report an issue.</CardDescription>
+                </CardHeader>
+            </Card>
+        )}
       </div>
     </div>
   );
