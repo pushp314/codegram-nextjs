@@ -36,8 +36,12 @@ export function SnippetDetailSheet({ snippet, isOpen, onOpenChange }: SnippetDet
 
   const fetchComments = async () => {
     setIsLoadingComments(true);
-    const allComments = await getSnippetCommentsAction(snippet.id);
-    setComments(allComments);
+    const result = await getSnippetCommentsAction(snippet.id);
+    if (result) {
+      setComments(result);
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch comments.' });
+    }
     setIsLoadingComments(false);
   };
   

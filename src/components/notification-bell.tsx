@@ -9,7 +9,6 @@ import { formatDistanceToNow } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getNotificationsAction, markNotificationsAsReadAction } from '@/app/actions';
 import type { Notification, NotificationType } from '@/lib/types';
 import { Skeleton } from './ui/skeleton';
@@ -51,9 +50,11 @@ export default function NotificationBell() {
     const fetchNotifications = async () => {
         if (session?.user?.id) {
             setIsLoading(true);
-            const { notifications, unreadCount } = await getNotificationsAction(session.user.id);
-            setNotifications(notifications);
-            setUnreadCount(unreadCount);
+            const result = await getNotificationsAction(session.user.id);
+            if (result) {
+                setNotifications(result.notifications);
+                setUnreadCount(result.unreadCount);
+            }
             setIsLoading(false);
         }
     };
@@ -69,8 +70,13 @@ export default function NotificationBell() {
     const handleOpenChange = async (open: boolean) => {
         setIsOpen(open);
         if (open && unreadCount > 0 && session?.user?.id) {
+            // Optimistically update UI
+            const previouslyRead = notifications.filter(n => !n.read).map(n => n.id);
+            setNotifications(notifications.map(n => ({ ...n, read: true })));
+            setUnreadCount(0);
+            
+            // Mark as read on server
             await markNotificationsAsReadAction(session.user.id);
-            setUnreadCount(0); // Optimistically update
         }
     };
     

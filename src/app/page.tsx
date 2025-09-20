@@ -8,6 +8,7 @@ import SnippetGenerator from '@/components/snippet-generator';
 import type { Snippet } from '@/lib/types';
 import { getSnippetsAction } from './actions';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 const SNIPPETS_PER_PAGE = 3;
 
@@ -36,6 +37,7 @@ export default function Home() {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
+  const { toast } = useToast();
   
   const { ref, inView } = useInView({
     threshold: 0,
@@ -47,20 +49,40 @@ export default function Home() {
     setLoading(true);
 
     const nextPage = page + 1;
-    const { snippets: newSnippets, hasMore: newHasMore } = await getSnippetsAction({ page: nextPage, limit: SNIPPETS_PER_PAGE });
+    const result = await getSnippetsAction({ page: nextPage, limit: SNIPPETS_PER_PAGE });
+
+    if ('error' in result) {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to load more snippets',
+        description: result.error,
+      });
+      setHasMore(false);
+    } else {
+      setSnippets(prev => [...prev, ...result.snippets]);
+      setPage(nextPage);
+      setHasMore(result.hasMore);
+    }
     
-    setSnippets(prev => [...prev, ...newSnippets]);
-    setPage(nextPage);
-    setHasMore(newHasMore);
     setLoading(false);
   };
   
   const initialLoad = async () => {
     setLoading(true);
-    const { snippets: initialSnippets, hasMore: initialHasMore } = await getSnippetsAction({ page: 0, limit: SNIPPETS_PER_PAGE });
-    setSnippets(initialSnippets);
-    setPage(0);
-    setHasMore(initialHasMore);
+    const result = await getSnippetsAction({ page: 0, limit: SNIPPETS_PER_PAGE });
+    if ('error' in result) {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to load snippets',
+        description: result.error,
+      });
+      setSnippets([]);
+      setHasMore(false);
+    } else {
+      setSnippets(result.snippets);
+      setHasMore(result.hasMore);
+      setPage(0);
+    }
     setLoading(false);
   }
 

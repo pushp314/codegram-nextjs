@@ -6,7 +6,6 @@ import { DocCard } from '@/components/doc-card';
 import { Input } from '@/components/ui/input';
 import { FileText, Search } from 'lucide-react';
 import { getDocumentsAction } from '../actions';
-import type { Document } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -36,7 +35,7 @@ export default async function DocsPage() {
           </div>
       </div>
       
-      {documents.length > 0 ? (
+      {documents && documents.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {documents.map((doc, index) => (
             <DocCard 

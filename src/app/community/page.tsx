@@ -29,7 +29,7 @@ export default async function CommunityPage({
         <SearchBar placeholder="Search by name..." />
       </div>
 
-      {users.length > 0 ? (
+      {users && users.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {users.map((user) => (
             <UserCard

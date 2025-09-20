@@ -8,7 +8,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Send, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,8 +37,12 @@ export function DocDetailSheet({ doc, isOpen, onOpenChange }: DocDetailSheetProp
   const fetchComments = async () => {
       if (!doc.id) return;
       setIsLoadingComments(true);
-      const allComments = await getDocumentCommentsAction(doc.id);
-      setComments(allComments);
+      const result = await getDocumentCommentsAction(doc.id);
+      if (result) {
+        setComments(result);
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch comments.' });
+      }
       setIsLoadingComments(false);
   }
 

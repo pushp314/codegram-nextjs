@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,6 +12,7 @@ import { useInView } from 'react-intersection-observer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DocCard } from '@/components/doc-card';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 
 const DOCS_PER_PAGE = 6;
@@ -38,6 +38,10 @@ function SnippetSkeleton() {
   )
 }
 
+function DocSkeleton() {
+    return <Skeleton className="h-64 w-full" />;
+}
+
 function EmptyState({ icon: Icon, title, description }: { icon: React.ElementType, title: string, description: string}) {
     return (
         <Card className="flex flex-col items-center justify-center text-center p-12 h-96 border-dashed">
@@ -52,174 +56,96 @@ function EmptyState({ icon: Icon, title, description }: { icon: React.ElementTyp
     );
 }
 
-function SnippetList({ fetcher, authorId }: { fetcher: (params: { page: number; limit: number; userId: string; }) => Promise<{ snippets: Snippet[], hasMore: boolean }>, authorId: string }) {
-    const [snippets, setSnippets] = useState<Snippet[]>([]);
+function PaginatedList<T extends Snippet | Document>({ 
+    fetcher, 
+    userId,
+    ItemComponent,
+    SkeletonComponent,
+    EmptyStateComponent,
+    itemsPerPage,
+    gridClass,
+    initialItems,
+    initialHasMore
+}: {
+    fetcher: (params: { page: number; limit: number; userId: string; authorId: string; }) => Promise<{ snippets?: Snippet[], documents?: Document[], hasMore: boolean } | { error: string }>,
+    userId: string,
+    ItemComponent: React.ComponentType<any>,
+    SkeletonComponent: React.ComponentType,
+    EmptyStateComponent: React.ReactNode,
+    itemsPerPage: number,
+    gridClass: string,
+    initialItems?: T[],
+    initialHasMore?: boolean
+}) {
+    const [items, setItems] = useState<T[]>(initialItems || []);
     const [page, setPage] = useState(0);
-    const [loading, setLoading] = useState(true);
-    const [hasMore, setHasMore] = useState(true);
-    const { ref, inView } = useInView({ threshold: 0, rootMargin: '200px' });
+    const [loading, setLoading] = useState(!initialItems);
+    const [hasMore, setHasMore] = useState(initialHasMore ?? true);
+    const { toast } = useToast();
+    const { ref, inView } = useInView({ threshold: 0, rootMargin: '200px', triggerOnce: false });
 
     const loadMore = useCallback(async (currentPage: number) => {
         if (!hasMore || loading) return;
         setLoading(true);
-        const { snippets: newSnippets, hasMore: newHasMore } = await fetcher({ page: currentPage, limit: SNIPPETS_PER_PAGE, userId: authorId });
-        setSnippets(prev => [...prev, ...newSnippets]);
-        setPage(currentPage);
-        setHasMore(newHasMore);
+
+        const result = await fetcher({ page: currentPage, limit: itemsPerPage, userId: userId, authorId: userId });
+
+        if ('error' in result) {
+            toast({ variant: 'destructive', title: 'Error fetching data', description: result.error });
+            setHasMore(false);
+        } else {
+            const newItems = (result.snippets || result.documents || []) as T[];
+            setItems(prev => [...prev, ...newItems]);
+            setPage(currentPage);
+            setHasMore(result.hasMore);
+        }
         setLoading(false);
-    }, [hasMore, loading, fetcher, authorId]);
-    
+    }, [hasMore, loading, fetcher, itemsPerPage, userId, toast]);
+
     useEffect(() => {
-        setLoading(true);
-        fetcher({ page: 0, limit: SNIPPETS_PER_PAGE, userId: authorId }).then(({ snippets, hasMore }) => {
-            setSnippets(snippets);
-            setHasMore(hasMore);
-            setPage(0);
-            setLoading(false);
-        });
-    }, [fetcher, authorId]);
+        if (!initialItems) {
+            loadMore(0);
+        }
+    }, [initialItems, loadMore]);
 
     useEffect(() => {
         if (inView && hasMore && !loading) {
             loadMore(page + 1);
         }
     }, [inView, hasMore, loading, page, loadMore]);
+    
+    if (items.length === 0 && !loading) {
+        return <>{EmptyStateComponent}</>;
+    }
 
     return (
         <>
-            {snippets.length === 0 && !loading && (
-                <EmptyState icon={Bookmark} title="No Saved Snippets" description="You haven't saved any snippets yet." />
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {snippets.map((snippet) => (
-                    <SnippetCard key={`saved-${snippet.id}`} snippet={snippet} />
+            <div className={gridClass}>
+                {items.map((item) => (
+                    <ItemComponent key={item.id} {...{ [ItemComponent === SnippetCard ? 'snippet' : 'doc']: item }} />
                 ))}
-                {loading && (
-                    <>
-                        <SnippetSkeleton />
-                        <SnippetSkeleton />
-                    </>
-                )}
+                {loading && Array.from({ length: itemsPerPage / 2 }).map((_, i) => <SkeletonComponent key={`skel-${i}`} />)}
             </div>
             <div ref={ref} className="h-10" />
         </>
     );
 }
 
-function DocList({ fetcher, authorId }: { fetcher: (params: { page: number; limit: number; authorId: string; userId: string; }) => Promise<{ documents: Document[], hasMore: boolean }>, authorId: string }) {
-    const [documents, setDocuments] = useState<Document[]>([]);
-    const [page, setPage] = useState(0);
-    const [loading, setLoading] = useState(true);
-    const [hasMore, setHasMore] = useState(true);
-    const { ref, inView } = useInView({ threshold: 0, rootMargin: '200px' });
-
-    const loadMore = useCallback(async (currentPage: number) => {
-        if (!hasMore || loading) return;
-        setLoading(true);
-        const { documents: newDocs, hasMore: newHasMore } = await fetcher({ page: currentPage, limit: DOCS_PER_PAGE, authorId, userId: authorId });
-        setDocuments(prev => [...prev, ...newDocs]);
-        setPage(currentPage);
-        setHasMore(newHasMore);
-        setLoading(false);
-    }, [hasMore, loading, fetcher, authorId]);
-
-    useEffect(() => {
-        setLoading(true);
-        fetcher({ page: 0, limit: DOCS_PER_PAGE, authorId, userId: authorId }).then(({ documents, hasMore }) => {
-            setDocuments(documents);
-            setHasMore(hasMore);
-            setPage(0);
-            setLoading(false);
-        });
-    }, [fetcher, authorId]);
-
-    useEffect(() => {
-        if (inView && hasMore && !loading) {
-            loadMore(page + 1);
-        }
-    }, [inView, hasMore, loading, page, loadMore]);
-
-    return (
-        <>
-            {documents.length === 0 && !loading && (
-                <EmptyState icon={FileText} title="No Saved Docs" description="You haven't saved any documents yet." />
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {documents.map((doc, index) => (
-                     <DocCard 
-                        key={doc.id}
-                        title={doc.title}
-                        tags={doc.tags}
-                        image={`https://picsum.photos/seed/doc-${doc.id}/600/400`}
-                        imageHint="tech background"
-                        author={doc.author.name}
-                        authorImage={doc.author.image}
-                        authorImageHint="developer portrait"
-                        link={`/docs/${doc.slug}`}
-                    />
-                ))}
-                {loading && Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-64 w-full" />) }
-            </div>
-            <div ref={ref} className="h-10" />
-        </>
-    );
-}
-
-export default function ProfileTabs({ initialSnippets, initialDocuments, authorId, isCurrentUserProfile }: { initialSnippets: { snippets: Snippet[], hasMore: boolean }, initialDocuments: { documents: Document[], hasMore: boolean }, authorId: string, isCurrentUserProfile: boolean }) {
-    const [userSnippets, setUserSnippets] = useState<Snippet[]>(initialSnippets.snippets);
-    const [userSnippetsPage, setUserSnippetsPage] = useState(0);
-    const [userSnippetsLoading, setUserSnippetsLoading] = useState(false);
-    const [userSnippetsHasMore, setUserSnippetsHasMore] = useState(initialSnippets.hasMore);
-    const { ref: userSnippetsRef, inView: userSnippetsInView } = useInView({ threshold: 0, rootMargin: '200px' });
-
-    const [userDocs, setUserDocs] = useState<Document[]>(initialDocuments.documents);
-    const [userDocsPage, setUserDocsPage] = useState(0);
-    const [userDocsLoading, setUserDocsLoading] = useState(false);
-    const [userDocsHasMore, setUserDocsHasMore] = useState(initialDocuments.hasMore);
-    const { ref: userDocsRef, inView: userDocsInView } = useInView({ threshold: 0, rootMargin: '200px' });
+export default function ProfileTabs({ initialSnippets, initialDocuments, authorId, isCurrentUserProfile }: { initialSnippets?: { snippets: Snippet[], hasMore: boolean }, initialDocuments?: { documents: Document[], hasMore: boolean }, authorId: string, isCurrentUserProfile: boolean }) {
     
-    const loadMoreUserSnippets = useCallback(async () => {
-        if (!userSnippetsHasMore || userSnippetsLoading) return;
-        setUserSnippetsLoading(true);
-        const nextPage = userSnippetsPage + 1;
-        const { snippets: newSnippets, hasMore: newHasMore } = await getSnippetsAction({ page: nextPage, limit: SNIPPETS_PER_PAGE, authorId });
-        setUserSnippets(prev => [...prev, ...newSnippets]);
-        setUserSnippetsPage(nextPage);
-        setUserSnippetsHasMore(newHasMore);
-        setUserSnippetsLoading(false);
-    }, [userSnippetsHasMore, userSnippetsLoading, userSnippetsPage, authorId]);
-    
-    useEffect(() => {
-        if (userSnippetsInView) {
-            loadMoreUserSnippets();
-        }
-    }, [userSnippetsInView, loadMoreUserSnippets]);
-
-     const loadMoreUserDocs = useCallback(async () => {
-        if (!userDocsHasMore || userDocsLoading) return;
-        setUserDocsLoading(true);
-        const nextPage = userDocsPage + 1;
-        const { documents: newDocs, hasMore: newHasMore } = await getDocumentsByAuthorAction({ page: nextPage, limit: DOCS_PER_PAGE, authorId });
-        setUserDocs(prev => [...prev, ...newDocs]);
-        setUserDocsPage(nextPage);
-        setUserDocsHasMore(newHasMore);
-        setUserDocsLoading(false);
-    }, [userDocsHasMore, userDocsLoading, userDocsPage, authorId]);
-
-    useEffect(() => {
-        if (userDocsInView) {
-            loadMoreUserDocs();
-        }
-    }, [userDocsInView, loadMoreUserDocs]);
-
-
-    const fetchSavedSnippets = useCallback(async (params: { page: number, limit: number, userId: string }) => {
-        return getSavedSnippetsAction(params);
-    }, []);
-
-    const fetchSavedDocs = useCallback(async (params: { page: number, limit: number, userId: string }) => {
-        return getSavedDocumentsAction(params);
-    }, []);
+    const renderDocCard = (props: {doc: Document}) => (
+        <DocCard 
+            key={props.doc.id}
+            title={props.doc.title}
+            tags={props.doc.tags}
+            image={`https://picsum.photos/seed/doc-${props.doc.id}/600/400`}
+            imageHint="tech background"
+            author={props.doc.author.name}
+            authorImage={props.doc.author.image}
+            authorImageHint="developer portrait"
+            link={`/docs/${props.doc.slug}`}
+        />
+    )
 
     return (
         <Tabs defaultValue="snippets" className="w-full">
@@ -229,51 +155,30 @@ export default function ProfileTabs({ initialSnippets, initialDocuments, authorI
                 {isCurrentUserProfile && <TabsTrigger value="saved"><Bookmark className="mr-2 h-4 w-4" />Saved</TabsTrigger>}
             </TabsList>
             <TabsContent value="snippets" className="mt-6">
-                {userSnippets.length === 0 && !userSnippetsLoading && (
-                    <EmptyState 
-                        icon={Code} 
-                        title="No Snippets Yet" 
-                        description="This user hasn't posted any snippets yet." 
-                    />
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {userSnippets.map((snippet) => (
-                        <SnippetCard key={`user-${snippet.id}`} snippet={snippet} />
-                    ))}
-                    {userSnippetsLoading && (
-                        <>
-                            <SnippetSkeleton />
-                            <SnippetSkeleton />
-                        </>
-                    )}
-                </div>
-                 <div ref={userSnippetsRef} className="h-10" />
+                <PaginatedList
+                    fetcher={getSnippetsAction as any}
+                    userId={authorId}
+                    ItemComponent={SnippetCard}
+                    SkeletonComponent={SnippetSkeleton}
+                    EmptyStateComponent={<EmptyState icon={Code} title="No Snippets Yet" description="This user hasn't posted any snippets yet." />}
+                    itemsPerPage={SNIPPETS_PER_PAGE}
+                    gridClass="grid grid-cols-1 md:grid-cols-2 gap-6"
+                    initialItems={initialSnippets?.snippets}
+                    initialHasMore={initialSnippets?.hasMore}
+                />
             </TabsContent>
             <TabsContent value="docs" className="mt-6">
-                 {userDocs.length === 0 && !userDocsLoading && (
-                    <EmptyState 
-                        icon={FileText} 
-                        title="No Docs Yet" 
-                        description="This user hasn't posted any docs yet." 
-                    />
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {userDocs.map((doc) => (
-                        <DocCard 
-                            key={doc.id}
-                            title={doc.title}
-                            tags={doc.tags}
-                            image={`https://picsum.photos/seed/doc-${doc.id}/600/400`}
-                            imageHint="tech background"
-                            author={doc.author.name}
-                            authorImage={doc.author.image}
-                            authorImageHint="developer portrait"
-                            link={`/docs/${doc.slug}`}
-                        />
-                    ))}
-                    {userDocsLoading && Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-64 w-full" />) }
-                </div>
-                 <div ref={userDocsRef} className="h-10" />
+                <PaginatedList
+                    fetcher={getDocumentsByAuthorAction as any}
+                    userId={authorId}
+                    ItemComponent={renderDocCard as any}
+                    SkeletonComponent={DocSkeleton}
+                    EmptyStateComponent={<EmptyState icon={FileText} title="No Docs Yet" description="This user hasn't posted any docs yet." />}
+                    itemsPerPage={DOCS_PER_PAGE}
+                    gridClass="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                    initialItems={initialDocuments?.documents}
+                    initialHasMore={initialDocuments?.hasMore}
+                />
             </TabsContent>
             {isCurrentUserProfile && (
                 <TabsContent value="saved" className="mt-6">
@@ -283,10 +188,26 @@ export default function ProfileTabs({ initialSnippets, initialDocuments, authorI
                              <TabsTrigger value="docs-saved"><FileText className="mr-2 h-4 w-4" />Docs</TabsTrigger>
                         </TabsList>
                         <TabsContent value="snippets-saved" className="mt-6">
-                            <SnippetList fetcher={fetchSavedSnippets} authorId={authorId} />
+                             <PaginatedList
+                                fetcher={getSavedSnippetsAction as any}
+                                userId={authorId}
+                                ItemComponent={SnippetCard}
+                                SkeletonComponent={SnippetSkeleton}
+                                EmptyStateComponent={<EmptyState icon={Bookmark} title="No Saved Snippets" description="You haven't saved any snippets yet." />}
+                                itemsPerPage={SNIPPETS_PER_PAGE}
+                                gridClass="grid grid-cols-1 md:grid-cols-2 gap-6"
+                            />
                         </TabsContent>
                         <TabsContent value="docs-saved" className="mt-6">
-                             <DocList fetcher={fetchSavedDocs as any} authorId={authorId} />
+                              <PaginatedList
+                                fetcher={getSavedDocumentsAction as any}
+                                userId={authorId}
+                                ItemComponent={renderDocCard as any}
+                                SkeletonComponent={DocSkeleton}
+                                EmptyStateComponent={<EmptyState icon={Bookmark} title="No Saved Docs" description="You haven't saved any documents yet." />}
+                                itemsPerPage={DOCS_PER_PAGE}
+                                gridClass="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                            />
                         </TabsContent>
                     </Tabs>
                 </TabsContent>

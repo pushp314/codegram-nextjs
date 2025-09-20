@@ -21,7 +21,7 @@ export default async function BugsPage() {
       </div>
 
       <div className="space-y-6">
-        {bugs.map((bug) => (
+        {bugs && bugs.map((bug) => (
           <BugCard
             key={bug.id}
             bugId={bug.id}

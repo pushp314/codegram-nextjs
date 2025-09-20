@@ -1,6 +1,5 @@
 
 
-
 'use server';
 
 import {
@@ -228,161 +227,175 @@ export async function toggleFollowAction(authorId: string) {
 }
 
 
-export async function getSnippetsAction({ page = 0, limit = 3, authorId }: { page: number; limit: number, authorId?: string }): Promise<{ snippets: Snippet[], hasMore: boolean }> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  
-  const whereClause = authorId ? { authorId } : {};
+export async function getSnippetsAction({ page = 0, limit = 3, authorId }: { page: number; limit: number, authorId?: string }): Promise<{ snippets: Snippet[], hasMore: boolean } | { error: string }> {
+  try {
+    const session = await auth();
+    const userId = session?.user?.id;
+    
+    const whereClause = authorId ? { authorId } : {};
 
-  const snippets = await prisma.snippet.findMany({
-    where: whereClause,
-    skip: page * limit,
-    take: limit,
-    orderBy: {
-      createdAt: 'desc'
-    },
-    include: {
-      author: true,
-      _count: {
-        select: { likes: true, comments: true, saves: true }
+    const snippets = await prisma.snippet.findMany({
+      where: whereClause,
+      skip: page * limit,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc'
       },
-      comments: {
-        take: 2,
-        orderBy: {
-            createdAt: 'desc'
+      include: {
+        author: true,
+        _count: {
+          select: { likes: true, comments: true, saves: true }
         },
-        include: {
-            author: true
+        comments: {
+          take: 2,
+          orderBy: {
+              createdAt: 'desc'
+          },
+          include: {
+              author: true
+          }
         }
       }
-    }
-  });
-
-  const totalSnippets = await prisma.snippet.count({ where: whereClause });
-  const hasMore = (page * limit) + limit < totalSnippets;
-
-  let userLikes: string[] = [];
-  let userSaves: string[] = [];
-
-  if (userId) {
-    const likes = await prisma.like.findMany({
-      where: { userId: userId, snippetId: { in: snippets.map(s => s.id) } },
-      select: { snippetId: true }
     });
-    userLikes = likes.map(like => like.snippetId);
 
-    const saves = await prisma.save.findMany({
+    const totalSnippets = await prisma.snippet.count({ where: whereClause });
+    const hasMore = (page * limit) + limit < totalSnippets;
+
+    let userLikes: string[] = [];
+    let userSaves: string[] = [];
+
+    if (userId) {
+      const likes = await prisma.like.findMany({
         where: { userId: userId, snippetId: { in: snippets.map(s => s.id) } },
         select: { snippetId: true }
+      });
+      userLikes = likes.map(like => like.snippetId);
+
+      const saves = await prisma.save.findMany({
+          where: { userId: userId, snippetId: { in: snippets.map(s => s.id) } },
+          select: { snippetId: true }
+      });
+      userSaves = saves.map(save => save.snippetId);
+    }
+
+
+    const snippetsWithLikes: Snippet[] = snippets.map(snippet => {
+      const typedSnippet: Snippet = {
+          ...snippet,
+          author: snippet.author,
+          likes_count: snippet._count.likes,
+          comments_count: snippet._count.comments,
+          saves_count: snippet._count.saves,
+          isLiked: userLikes.includes(snippet.id),
+          isBookmarked: userSaves.includes(snippet.id),
+          views_count: 1000, // Placeholder
+          comments: snippet.comments.map(c => ({...c, author: c.author}))
+      };
+      return typedSnippet;
     });
-    userSaves = saves.map(save => save.snippetId);
+
+    return { snippets: snippetsWithLikes, hasMore };
+  } catch (error) {
+    console.error('[getSnippetsAction Error]', error);
+    return { error: 'Failed to fetch snippets.' };
   }
-
-
-  const snippetsWithLikes: Snippet[] = snippets.map(snippet => {
-    const typedSnippet: Snippet = {
-        ...snippet,
-        author: snippet.author,
-        likes_count: snippet._count.likes,
-        comments_count: snippet._count.comments,
-        saves_count: snippet._count.saves,
-        isLiked: userLikes.includes(snippet.id),
-        isBookmarked: userSaves.includes(snippet.id),
-        views_count: 1000, // Placeholder
-        comments: snippet.comments.map(c => ({...c, author: c.author}))
-    };
-    return typedSnippet;
-  });
-
-  return { snippets: snippetsWithLikes, hasMore };
 }
 
 
-export async function getSavedSnippetsAction({ page = 0, limit = 4, userId }: { page: number; limit: number, userId: string }): Promise<{ snippets: Snippet[], hasMore: boolean }> {
-  const session = await auth();
-  const currentUserId = session?.user?.id;
-  if (!currentUserId || currentUserId !== userId) {
-    return { snippets: [], hasMore: false };
-  }
+export async function getSavedSnippetsAction({ page = 0, limit = 4, userId }: { page: number; limit: number, userId: string }): Promise<{ snippets: Snippet[], hasMore: boolean } | { error: string }> {
+  try {
+    const session = await auth();
+    const currentUserId = session?.user?.id;
+    if (!currentUserId || currentUserId !== userId) {
+      return { snippets: [], hasMore: false };
+    }
 
-  const saved = await prisma.save.findMany({
-    where: { userId },
-    select: { snippetId: true },
-    orderBy: { createdAt: 'desc' },
-    skip: page * limit,
-    take: limit,
-  });
-  
-  const snippetIds = saved.map(s => s.snippetId);
+    const saved = await prisma.save.findMany({
+      where: { userId },
+      select: { snippetId: true },
+      orderBy: { createdAt: 'desc' },
+      skip: page * limit,
+      take: limit,
+    });
+    
+    const snippetIds = saved.map(s => s.snippetId);
 
-  const snippets = await prisma.snippet.findMany({
-    where: {
-      id: { in: snippetIds }
-    },
-    include: {
-      author: true,
-      _count: {
-        select: { likes: true, comments: true, saves: true }
+    const snippets = await prisma.snippet.findMany({
+      where: {
+        id: { in: snippetIds }
       },
-       comments: {
-        take: 2,
-        orderBy: {
-            createdAt: 'desc'
+      include: {
+        author: true,
+        _count: {
+          select: { likes: true, comments: true, saves: true }
         },
-        include: {
-            author: true
+        comments: {
+          take: 2,
+          orderBy: {
+              createdAt: 'desc'
+          },
+          include: {
+              author: true
+          }
         }
       }
-    }
-  });
-  
-  const totalSaved = await prisma.save.count({ where: { userId } });
-  const hasMore = (page * limit) + limit < totalSaved;
+    });
+    
+    const totalSaved = await prisma.save.count({ where: { userId } });
+    const hasMore = (page * limit) + limit < totalSaved;
 
-  const userLikes = await prisma.like.findMany({
-    where: { userId, snippetId: { in: snippetIds } },
-    select: { snippetId: true }
-  });
-  const likedSnippetIds = userLikes.map(l => l.snippetId);
-  
-  const savedSnippetIds = await prisma.save.findMany({
+    const userLikes = await prisma.like.findMany({
       where: { userId, snippetId: { in: snippetIds } },
       select: { snippetId: true }
-  });
-  const bookmarkedSnippetIds = savedSnippetIds.map(s => s.snippetId);
+    });
+    const likedSnippetIds = userLikes.map(l => l.snippetId);
+    
+    const savedSnippetIds = await prisma.save.findMany({
+        where: { userId, snippetId: { in: snippetIds } },
+        select: { snippetId: true }
+    });
+    const bookmarkedSnippetIds = savedSnippetIds.map(s => s.snippetId);
 
-  const snippetsWithData: Snippet[] = snippets.map(snippet => ({
-    ...snippet,
-    author: snippet.author,
-    likes_count: snippet._count.likes,
-    comments_count: snippet._count.comments,
-    saves_count: snippet._count.saves,
-    isLiked: likedSnippetIds.includes(snippet.id),
-    isBookmarked: bookmarkedSnippetIds.includes(snippet.id),
-    views_count: 1000, // Placeholder
-    comments: snippet.comments.map(c => ({...c, author: c.author})),
-  }));
-  
-  // Sort snippets by the order they were saved
-  const sortedSnippets = snippetsWithData.sort((a, b) => snippetIds.indexOf(a.id) - snippetIds.indexOf(b.id));
+    const snippetsWithData: Snippet[] = snippets.map(snippet => ({
+      ...snippet,
+      author: snippet.author,
+      likes_count: snippet._count.likes,
+      comments_count: snippet._count.comments,
+      saves_count: snippet._count.saves,
+      isLiked: likedSnippetIds.includes(snippet.id),
+      isBookmarked: bookmarkedSnippetIds.includes(snippet.id),
+      views_count: 1000, // Placeholder
+      comments: snippet.comments.map(c => ({...c, author: c.author})),
+    }));
+    
+    const sortedSnippets = snippetsWithData.sort((a, b) => snippetIds.indexOf(a.id) - snippetIds.indexOf(b.id));
 
-  return { snippets: sortedSnippets, hasMore };
+    return { snippets: sortedSnippets, hasMore };
+  } catch (error) {
+    console.error('[getSavedSnippetsAction Error]', error);
+    return { error: 'Failed to fetch saved snippets.' };
+  }
 }
 
 
-export async function getDocumentsAction(): Promise<Document[]> {
-    const documents = await prisma.document.findMany({
-        orderBy: {
-            createdAt: 'desc'
-        },
-        include: {
-            author: true,
-            comments: {
-                include: { author: true }
+export async function getDocumentsAction(): Promise<Document[] | null> {
+    try {
+        const documents = await prisma.document.findMany({
+            orderBy: {
+                createdAt: 'desc'
             },
-        }
-    });
-    return documents.map(d => ({...d, likes_count: 0, saves_count: 0, comments_count: d.comments.length, isLiked: false, isSaved: false, comments: d.comments.map(c => ({...c, author: c.author})) }));
+            include: {
+                author: true,
+                comments: {
+                    include: { author: true }
+                },
+            }
+        });
+        return documents.map(d => ({...d, likes_count: 0, saves_count: 0, comments_count: d.comments.length, isLiked: false, isSaved: false, comments: d.comments.map(c => ({...c, author: c.author})) }));
+    } catch (error) {
+        console.error('[getDocumentsAction Error]', error);
+        return null;
+    }
 }
 
 export type FullDocument = Document & {
@@ -390,117 +403,127 @@ export type FullDocument = Document & {
 };
 
 export async function getDocumentBySlugAction(slug: string): Promise<FullDocument | null> {
-    const session = await auth();
-    const currentUserId = session?.user?.id;
+    try {
+        const session = await auth();
+        const currentUserId = session?.user?.id;
 
-    const document = await prisma.document.findUnique({
-        where: {
-            slug,
-        },
-        include: {
-            author: true,
-            _count: {
-                select: { likes: true, saves: true, comments: true }
+        const document = await prisma.document.findUnique({
+            where: {
+                slug,
             },
-            comments: {
-                include: {
-                    author: true
+            include: {
+                author: true,
+                _count: {
+                    select: { likes: true, saves: true, comments: true }
                 },
-                orderBy: {
-                    createdAt: 'desc'
+                comments: {
+                    include: {
+                        author: true
+                    },
+                    orderBy: {
+                        createdAt: 'desc'
+                    }
                 }
-            }
-        },
-    });
+            },
+        });
 
-    if (!document) {
+        if (!document) {
+            return null;
+        }
+
+        let isFollowed = false;
+        let isLiked = false;
+        let isSaved = false;
+
+        if (currentUserId) {
+            if (currentUserId !== document.author.id) {
+                const follow = await prisma.follows.findUnique({
+                    where: {
+                        followerId_followingId: {
+                            followerId: currentUserId,
+                            followingId: document.author.id,
+                        },
+                    },
+                });
+                isFollowed = !!follow;
+            }
+
+            const like = await prisma.documentLike.findUnique({
+                where: {
+                    userId_documentId: {
+                        userId: currentUserId,
+                        documentId: document.id,
+                    }
+                }
+            });
+            isLiked = !!like;
+
+            const save = await prisma.documentSave.findUnique({
+                where: {
+                    userId_documentId: {
+                        userId: currentUserId,
+                        documentId: document.id,
+                    }
+                }
+            });
+            isSaved = !!save;
+        }
+
+        return { 
+            ...document,
+            isFollowed,
+            likes_count: document._count.likes,
+            saves_count: document._count.saves,
+            comments_count: document._count.comments,
+            isLiked,
+            isSaved,
+            comments: document.comments.map(c => ({...c, author: c.author}))
+        };
+    } catch (error) {
+        console.error('[getDocumentBySlugAction Error]', error);
         return null;
     }
-
-    let isFollowed = false;
-    let isLiked = false;
-    let isSaved = false;
-
-    if (currentUserId) {
-        if (currentUserId !== document.author.id) {
-            const follow = await prisma.follows.findUnique({
-                where: {
-                    followerId_followingId: {
-                        followerId: currentUserId,
-                        followingId: document.author.id,
-                    },
-                },
-            });
-            isFollowed = !!follow;
-        }
-
-        const like = await prisma.documentLike.findUnique({
-            where: {
-                userId_documentId: {
-                    userId: currentUserId,
-                    documentId: document.id,
-                }
-            }
-        });
-        isLiked = !!like;
-
-        const save = await prisma.documentSave.findUnique({
-            where: {
-                userId_documentId: {
-                    userId: currentUserId,
-                    documentId: document.id,
-                }
-            }
-        });
-        isSaved = !!save;
-    }
-
-    return { 
-        ...document,
-        isFollowed,
-        likes_count: document._count.likes,
-        saves_count: document._count.saves,
-        comments_count: document._count.comments,
-        isLiked,
-        isSaved,
-        comments: document.comments.map(c => ({...c, author: c.author}))
-    };
 }
 
-export async function getBugsAction(): Promise<Bug[]> {
-    const session = await auth();
-    const userId = session?.user?.id;
+export async function getBugsAction(): Promise<Bug[] | null> {
+    try {
+        const session = await auth();
+        const userId = session?.user?.id;
 
-    const bugs = await prisma.bug.findMany({
-        orderBy: {
-            createdAt: 'desc'
-        },
-        include: {
-            author: true,
-            _count: {
-                select: { upvotes: true }
+        const bugs = await prisma.bug.findMany({
+            orderBy: {
+                createdAt: 'desc'
+            },
+            include: {
+                author: true,
+                _count: {
+                    select: { upvotes: true }
+                }
             }
-        }
-    });
-
-    const bugIds = bugs.map(b => b.id);
-    let userUpvotes: string[] = [];
-
-    if (userId) {
-        const upvotes = await prisma.bugUpvote.findMany({
-            where: { userId: userId, bugId: { in: bugIds } },
-            select: { bugId: true }
         });
-        userUpvotes = upvotes.map(upvote => upvote.bugId);
+
+        const bugIds = bugs.map(b => b.id);
+        let userUpvotes: string[] = [];
+
+        if (userId) {
+            const upvotes = await prisma.bugUpvote.findMany({
+                where: { userId: userId, bugId: { in: bugIds } },
+                select: { bugId: true }
+            });
+            userUpvotes = upvotes.map(upvote => upvote.bugId);
+        }
+        
+        return bugs.map(bug => ({
+            ...bug,
+            author: bug.author,
+            upvotes_count: bug._count.upvotes,
+            isUpvoted: userUpvotes.includes(bug.id),
+            comments_count: 0 // Placeholder
+        }));
+    } catch (error) {
+        console.error('[getBugsAction Error]', error);
+        return null;
     }
-    
-    return bugs.map(bug => ({
-        ...bug,
-        author: bug.author,
-        upvotes_count: bug._count.upvotes,
-        isUpvoted: userUpvotes.includes(bug.id),
-        comments_count: 0 // Placeholder
-    }));
 }
 
 
@@ -538,53 +561,58 @@ export async function toggleBugUpvoteAction(bugId: string) {
     revalidatePath('/bugs');
 }
 
-export async function getUsersAction({ query }: { query?: string }): Promise<(User & { isFollowing: boolean, followersCount: number })[]> {
-    const session = await auth();
-    const currentUserId = session?.user?.id;
+export async function getUsersAction({ query }: { query?: string }): Promise<(User & { isFollowing: boolean, followersCount: number })[] | null> {
+    try {
+        const session = await auth();
+        const currentUserId = session?.user?.id;
 
-    const users = await prisma.user.findMany({
-        where: {
-            NOT: {
-                id: currentUserId,
+        const users = await prisma.user.findMany({
+            where: {
+                NOT: {
+                    id: currentUserId,
+                },
+                name: {
+                    contains: query,
+                    mode: 'insensitive',
+                }
             },
-            name: {
-                contains: query,
-                mode: 'insensitive',
-            }
-        },
-        include: {
-            _count: {
-                select: {
-                    followers: true,
+            include: {
+                _count: {
+                    select: {
+                        followers: true,
+                    }
                 }
             }
-        }
-    });
+        });
 
-    if (!currentUserId) {
+        if (!currentUserId) {
+            return users.map(user => ({
+                ...user,
+                isFollowing: false,
+                followersCount: user._count.followers
+            }));
+        }
+
+        const following = await prisma.follows.findMany({
+            where: {
+                followerId: currentUserId,
+                followingId: {
+                    in: users.map(u => u.id)
+                }
+            }
+        });
+        
+        const followingIds = following.map(f => f.followingId);
+
         return users.map(user => ({
             ...user,
-            isFollowing: false,
+            isFollowing: followingIds.includes(user.id),
             followersCount: user._count.followers
         }));
+    } catch (error) {
+        console.error('[getUsersAction Error]', error);
+        return null;
     }
-
-    const following = await prisma.follows.findMany({
-        where: {
-            followerId: currentUserId,
-            followingId: {
-                in: users.map(u => u.id)
-            }
-        }
-    });
-    
-    const followingIds = following.map(f => f.followingId);
-
-    return users.map(user => ({
-        ...user,
-        isFollowing: followingIds.includes(user.id),
-        followersCount: user._count.followers
-    }));
 }
 
 
@@ -664,19 +692,24 @@ export async function createDocumentCommentAction(documentId: string, content: s
     if (doc.slug) revalidatePath(`/docs/${doc.slug}`);
 }
 
-export async function getSnippetCommentsAction(snippetId: string): Promise<SnippetComment[]> {
-    const comments = await prisma.snippetComment.findMany({
-        where: {
-            snippetId,
-        },
-        include: {
-            author: true
-        },
-        orderBy: {
-            createdAt: 'desc'
-        }
-    });
-    return comments.map(c => ({...c, author: c.author}));
+export async function getSnippetCommentsAction(snippetId: string): Promise<SnippetComment[] | null> {
+    try {
+        const comments = await prisma.snippetComment.findMany({
+            where: {
+                snippetId,
+            },
+            include: {
+                author: true
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+        return comments.map(c => ({...c, author: c.author}));
+    } catch (error) {
+        console.error('[getSnippetCommentsAction Error]', error);
+        return null;
+    }
 }
 
 export async function addSnippetCommentAction(snippetId: string, content: string) {
@@ -710,107 +743,127 @@ export async function addSnippetCommentAction(snippetId: string, content: string
     revalidatePath(`/snippets/${snippetId}`);
 }
 
-export async function getDocumentCommentsAction(documentId: string): Promise<DocumentComment[]> {
-    const comments = await prisma.documentComment.findMany({
-        where: {
-            documentId,
-        },
-        include: {
-            author: true
-        },
-        orderBy: {
-            createdAt: 'desc'
-        }
-    });
-    return comments.map(c => ({...c, author: c.author}));
-}
-
-
-export async function getDocumentsByAuthorAction({ page = 0, limit = 4, authorId }: { page: number; limit: number, authorId: string }): Promise<{ documents: Document[], hasMore: boolean }> {
-  const documents = await prisma.document.findMany({
-    where: { authorId },
-    skip: page * limit,
-    take: limit,
-    orderBy: {
-      createdAt: 'desc'
-    },
-    include: {
-      author: true,
-      _count: {
-        select: { likes: true, saves: true, comments: true }
-      },
+export async function getDocumentCommentsAction(documentId: string): Promise<DocumentComment[] | null> {
+    try {
+        const comments = await prisma.documentComment.findMany({
+            where: {
+                documentId,
+            },
+            include: {
+                author: true
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+        return comments.map(c => ({...c, author: c.author}));
+    } catch (error) {
+        console.error('[getDocumentCommentsAction Error]', error);
+        return null;
     }
-  });
-
-  const totalDocs = await prisma.document.count({ where: { authorId } });
-  const hasMore = (page * limit) + limit < totalDocs;
-  
-  const docsWithData: Document[] = documents.map(doc => ({
-    ...doc,
-    author: doc.author,
-    likes_count: doc._count.likes,
-    saves_count: doc._count.saves,
-    comments_count: doc._count.comments,
-    isLiked: false, // This data is not available in this context
-    isSaved: false, // This data is not available in this context
-    comments: []
-  }));
-
-  return { documents: docsWithData, hasMore };
 }
 
 
-export async function getSavedDocumentsAction({ page = 0, limit = 4, userId }: { page: number; limit: number, userId: string }): Promise<{ documents: Document[], hasMore: boolean }> {
-  const saved = await prisma.documentSave.findMany({
-    where: { userId },
-    select: { documentId: true },
-    orderBy: { createdAt: 'desc' },
-    skip: page * limit,
-    take: limit,
-  });
-
-  const docIds = saved.map(s => s.documentId);
-
-  const documents = await prisma.document.findMany({
-    where: { id: { in: docIds } },
-    include: {
-      author: true,
-      _count: {
-        select: { likes: true, saves: true, comments: true }
+export async function getDocumentsByAuthorAction({ page = 0, limit = 4, authorId }: { page: number; limit: number, authorId: string }): Promise<{ documents: Document[], hasMore: boolean } | { error: string }> {
+  try {
+    const documents = await prisma.document.findMany({
+      where: { authorId },
+      skip: page * limit,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc'
       },
-    }
-  });
+      include: {
+        author: true,
+        _count: {
+          select: { likes: true, saves: true, comments: true }
+        },
+      }
+    });
 
-  const totalSaved = await prisma.documentSave.count({ where: { userId } });
-  const hasMore = (page * limit) + limit < totalSaved;
+    const totalDocs = await prisma.document.count({ where: { authorId } });
+    const hasMore = (page * limit) + limit < totalDocs;
+    
+    const docsWithData: Document[] = documents.map(doc => ({
+      ...doc,
+      author: doc.author,
+      likes_count: doc._count.likes,
+      saves_count: doc._count.saves,
+      comments_count: doc._count.comments,
+      isLiked: false, // This data is not available in this context
+      isSaved: false, // This data is not available in this context
+      comments: []
+    }));
 
-  const docsWithData: Document[] = documents.map(doc => ({
-    ...doc,
-    author: doc.author,
-    likes_count: doc._count.likes,
-    saves_count: doc._count.saves,
-    comments_count: doc._count.comments,
-    isLiked: false, // Placeholder
-    isSaved: true, // It's a saved doc
-    comments: []
-  }));
-  
-  const sortedDocs = docsWithData.sort((a, b) => docIds.indexOf(a.id) - docIds.indexOf(b.id));
-
-  return { documents: sortedDocs, hasMore };
+    return { documents: docsWithData, hasMore };
+  } catch (error) {
+    console.error('[getDocumentsByAuthorAction Error]', error);
+    return { error: 'Failed to fetch documents.' };
+  }
 }
 
-export async function getNotificationsAction(userId: string): Promise<{ notifications: Notification[], unreadCount: number }> {
-    const notifications = await prisma.notification.findMany({
-        where: { recipientId: userId },
-        include: { originator: true, recipient: true },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
+
+export async function getSavedDocumentsAction({ page = 0, limit = 4, userId }: { page: number; limit: number, userId: string }): Promise<{ documents: Document[], hasMore: boolean } | { error: string }> {
+  try {
+    const saved = await prisma.documentSave.findMany({
+      where: { userId },
+      select: { documentId: true },
+      orderBy: { createdAt: 'desc' },
+      skip: page * limit,
+      take: limit,
     });
-    const unreadCount = await prisma.notification.count({
-        where: { recipientId: userId, read: false },
+
+    const docIds = saved.map(s => s.documentId);
+
+    const documents = await prisma.document.findMany({
+      where: { id: { in: docIds } },
+      include: {
+        author: true,
+        _count: {
+          select: { likes: true, saves: true, comments: true }
+        },
+      }
     });
-    return { notifications: notifications as Notification[], unreadCount };
+
+    const totalSaved = await prisma.documentSave.count({ where: { userId } });
+    const hasMore = (page * limit) + limit < totalSaved;
+
+    const docsWithData: Document[] = documents.map(doc => ({
+      ...doc,
+      author: doc.author,
+      likes_count: doc._count.likes,
+      saves_count: doc._count.saves,
+      comments_count: doc._count.comments,
+      isLiked: false, // Placeholder
+      isSaved: true, // It's a saved doc
+      comments: []
+    }));
+    
+    const sortedDocs = docsWithData.sort((a, b) => docIds.indexOf(a.id) - docIds.indexOf(b.id));
+
+    return { documents: sortedDocs, hasMore };
+  } catch (error) {
+    console.error('[getSavedDocumentsAction Error]', error);
+    return { error: 'Failed to fetch saved documents.' };
+  }
+}
+
+export async function getNotificationsAction(userId: string): Promise<{ notifications: Notification[], unreadCount: number } | null> {
+    try {
+        const notifications = await prisma.notification.findMany({
+            where: { recipientId: userId },
+            include: { originator: true, recipient: true },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+        });
+        const unreadCount = await prisma.notification.count({
+            where: { recipientId: userId, read: false },
+        });
+        return { notifications: notifications as Notification[], unreadCount };
+    } catch (error) {
+        console.error('[getNotificationsAction Error]', error);
+        return null;
+    }
 }
 
 export async function markNotificationsAsReadAction(userId: string) {
@@ -843,47 +896,52 @@ export async function createComponentAction(data: { name: string; description: s
 }
 
 export async function getUserProfile(userId: string): Promise<(UserWithFollows & { isFollowing: boolean }) | null> {
-    const session = await auth();
-    const currentUserId = session?.user?.id;
+    try {
+        const session = await auth();
+        const currentUserId = session?.user?.id;
 
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-            followers: {
-                select: { follower: true }
-            },
-            following: {
-                select: { following: true }
-            },
-            _count: {
-                select: {
-                    snippets: true,
-                    documents: true,
-                    followers: true,
-                    following: true,
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                followers: {
+                    select: { follower: true }
+                },
+                following: {
+                    select: { following: true }
+                },
+                _count: {
+                    select: {
+                        snippets: true,
+                        documents: true,
+                        followers: true,
+                        following: true,
+                    }
                 }
             }
-        }
-    });
+        });
 
-    if (!user) {
+        if (!user) {
+            return null;
+        }
+
+        let isFollowing = false;
+        if (currentUserId && currentUserId !== userId) {
+            const follow = await prisma.follows.findUnique({
+                where: {
+                    followerId_followingId: {
+                        followerId: currentUserId,
+                        followingId: userId,
+                    },
+                },
+            });
+            isFollowing = !!follow;
+        }
+
+        return { ...user, isFollowing };
+    } catch (error) {
+        console.error('[getUserProfile Error]', error);
         return null;
     }
-
-    let isFollowing = false;
-    if (currentUserId && currentUserId !== userId) {
-        const follow = await prisma.follows.findUnique({
-            where: {
-                followerId_followingId: {
-                    followerId: currentUserId,
-                    followingId: userId,
-                },
-            },
-        });
-        isFollowing = !!follow;
-    }
-
-    return { ...user, isFollowing };
 }
 
 export async function updateUserProfileAction(data: { name: string; bio: string; }) {
