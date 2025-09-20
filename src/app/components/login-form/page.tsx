@@ -1,3 +1,4 @@
+
 import CodeBlock from "@/components/code-block";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,15 +9,15 @@ import { Bookmark, Heart, Share2, Code, Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import components from '@/lib/component-data.json';
 
-const componentData = components.find(c => c.slug === 'login-form');
-
-if (!componentData) {
-    return <div>Component not found</div>;
-}
-
-const { name, description, author, stats, code } = componentData;
-
 export default function ComponentDetailPage() {
+  const componentData = components.find(c => c.slug === 'login-form');
+
+  if (!componentData) {
+      return <div>Component not found</div>;
+  }
+
+  const { name, description, author, stats, code } = componentData;
+
   return (
     <div className="container mx-auto max-w-6xl px-4 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -38,11 +39,11 @@ export default function ComponentDetailPage() {
                     </CardHeader>
                     <CardContent className="grid gap-4">
                         <div className="grid gap-2">
-                        <Label htmlFor="email">Email</Label>
+                        <Label htmlFor="email-preview">Email</Label>
                         <Input id="email-preview" type="email" placeholder="m@example.com" required />
                         </div>
                         <div className="grid gap-2">
-                        <Label htmlFor="password">Password</Label>
+                        <Label htmlFor="password-preview">Password</Label>
                         <Input id="password-preview" type="password" required />
                         </div>
                         <Button type="submit" className="w-full">

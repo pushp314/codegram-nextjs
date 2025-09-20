@@ -1,3 +1,4 @@
+
 import CodeBlock from "@/components/code-block";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,15 +8,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Image from "next/image";
 import components from '@/lib/component-data.json';
 
-const componentData = components.find(c => c.slug === '3d-card-effect');
-
-if (!componentData) {
-    return <div>Component not found</div>;
-}
-
-const { name, description, author, stats, code, image, imageHint } = componentData;
-
 export default function ComponentDetailPage() {
+  const componentData = components.find(c => c.slug === '3d-card-effect');
+
+  if (!componentData) {
+      return <div>Component not found</div>;
+  }
+
+  const { name, description, author, stats, code, image, imageHint } = componentData;
+
   return (
     <div className="container mx-auto max-w-6xl px-4 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
