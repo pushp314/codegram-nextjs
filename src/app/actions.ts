@@ -378,9 +378,17 @@ export async function getSavedSnippetsAction({ page = 0, limit = 4, userId }: { 
 }
 
 
-export async function getDocumentsAction(): Promise<Document[] | null> {
+export async function getDocumentsAction({ query }: { query?: string }): Promise<Document[] | null> {
     try {
+        const whereClause = query ? {
+            title: {
+                contains: query,
+                mode: 'insensitive' as const
+            }
+        } : {};
+
         const documents = await prisma.document.findMany({
+            where: whereClause,
             orderBy: {
                 createdAt: 'desc'
             },

@@ -3,15 +3,19 @@
 'use server';
 
 import { DocCard } from '@/components/doc-card';
-import { Input } from '@/components/ui/input';
-import { FileText, Search } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { getDocumentsAction } from '../actions';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import SearchBar from './search-bar';
 
-
-export default async function DocsPage() {
-  const documents = await getDocumentsAction();
+export default async function DocsPage({
+  searchParams,
+}: {
+  searchParams?: { query?: string };
+}) {
+  const query = searchParams?.query || '';
+  const documents = await getDocumentsAction({ query });
 
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
@@ -29,10 +33,7 @@ export default async function DocsPage() {
       </div>
 
       <div className="mb-12 max-w-2xl">
-          <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input placeholder="Search for articles, tutorials, and more..." className="pl-10 h-12 text-base" />
-          </div>
+          <SearchBar placeholder="Search for articles, tutorials, and more..." />
       </div>
       
       {documents && documents.length > 0 ? (
@@ -54,9 +55,9 @@ export default async function DocsPage() {
       ) : (
         <div className="text-center py-16 border border-dashed rounded-lg">
             <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-medium">No documents yet</h3>
+            <h3 className="mt-4 text-lg font-medium">No documents found</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-                There are no documents to display. Why not write the first one?
+                No documents matched your search. Try a different query or create the first one!
             </p>
             <Button asChild className="mt-6">
                 <Link href="/docs/create">Create Document</Link>
