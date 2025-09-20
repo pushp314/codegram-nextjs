@@ -3,7 +3,6 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import FollowButton from './follow-button';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import type { User } from '@/lib/types';
@@ -39,15 +38,9 @@ export default function UserListDialog({ users, title, trigger }: UserListDialog
                                         <p className="text-sm text-muted-foreground">@{user.email?.split('@')[0]}</p>
                                     </div>
                                 </Link>
-                                {currentUserId && user.id !== currentUserId && (
-                                    <FollowButton
-                                        authorId={user.id}
-                                        // This is a limitation: we don't know the follow status of these users
-                                        // A more complex solution would be needed to show this accurately
-                                        isFollowed={false} 
-                                        isLoggedIn={!!currentUserId}
-                                    />
-                                )}
+                                {/* The follow button is removed from here because we cannot accurately 
+                                    determine the follow status for each user in this list without complex queries. 
+                                    The primary follow button is on the user's profile page. */}
                             </div>
                         ))
                     ) : (

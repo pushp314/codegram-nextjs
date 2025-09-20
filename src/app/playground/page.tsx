@@ -30,7 +30,7 @@ export default function PlaygroundPage() {
           </div>
           <div className="relative flex-1 rounded-lg bg-background/80">
             <LiveEditor className="!bg-transparent p-4 rounded-lg !font-mono" />
-            <LiveError className="absolute bottom-0 left-0 w-full p-2 bg-red-800 text-white text-xs" />
+            <LiveError className="absolute bottom-0 left-0 w-full p-2 bg-destructive text-destructive-foreground text-xs font-mono" />
           </div>
         </div>
 

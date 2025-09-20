@@ -8,12 +8,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import EditProfileForm from "./edit-profile-form";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
+import LogoutButton from "./logout-button";
+import { Button } from "@/components/ui/button";
 
 
 async function getUserData(userId: string) {
@@ -81,14 +82,14 @@ export default async function SettingsPage() {
                         <h3 className="font-medium">Log Out</h3>
                         <p className="text-sm text-muted-foreground">End your current session.</p>
                     </div>
-                     <Button variant="outline">Log Out</Button>
+                     <LogoutButton />
                 </div>
                  <div className="flex items-center justify-between text-destructive">
                     <div>
                         <h3 className="font-medium">Delete Account</h3>
                         <p className="text-sm">Permanently delete your account and all of your data.</p>
                     </div>
-                     <Button variant="destructive">Delete</Button>
+                     <Button variant="destructive" disabled>Delete</Button>
                 </div>
             </CardContent>
         </Card>

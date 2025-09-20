@@ -76,7 +76,11 @@ export default async function UserProfilePage({ params }: { params: { userId: st
                     </DropdownMenu>
                 </>
              ) : (
-                <FollowButton authorId={profileUser.id} isFollowed={profileUser.isFollowing} isLoggedIn={!!currentUserId} />
+                currentUserId ? (
+                    <FollowButton authorId={profileUser.id} isFollowed={profileUser.isFollowing} isLoggedIn={!!currentUserId} />
+                ) : (
+                    <div className="w-[115px] h-[40px]"></div> // Placeholder for button
+                )
              )}
           </div>
         </CardHeader>

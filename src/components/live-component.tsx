@@ -48,9 +48,9 @@ const LiveComponent: React.FC<LiveComponentProps> = ({ code, language }) => {
 
   return (
     <LiveProvider code={code} scope={scope}>
-      <div className="relative h-full">
+      <div className="relative w-full h-full">
         <LivePreview className="p-4 w-full h-full" />
-        <LiveError className="absolute bottom-0 left-0 w-full p-2 bg-red-800 text-white text-xs font-mono" />
+        <LiveError className="absolute bottom-0 left-0 w-full p-2 bg-destructive text-destructive-foreground text-xs font-mono" />
       </div>
     </LiveProvider>
   );
