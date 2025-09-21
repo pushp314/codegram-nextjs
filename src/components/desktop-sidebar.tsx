@@ -32,7 +32,7 @@ export default function DesktopSidebar() {
         >
           <Code className="h-5 w-5 transition-all group-hover:scale-110" />
            <span className="absolute h-full w-full bg-primary blur-md" />
-          <span className="sr-only">CodeGram</span>
+          <span className="sr-only">CodeStudio</span>
         </Link>
         <TooltipProvider>
           {navItems.map((item) => (
