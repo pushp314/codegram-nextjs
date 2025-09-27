@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import {
@@ -12,6 +10,7 @@ import type { Snippet, Document, Bug, User, DocumentComment, SnippetComment, Not
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { Prisma } from '@prisma/client';
 
 function slugify(text: string) {
   return text
@@ -42,7 +41,7 @@ export async function createSnippetAction(data: { title: string; description: st
   if (!session?.user?.id) {
     throw new Error('You must be logged in to create a snippet.');
   }
-  
+
   await prisma.snippet.create({
     data: {
       title: data.title,
@@ -140,7 +139,7 @@ export async function updateDocumentAction(docId: string, data: { title: string;
     if (!userId) {
         throw new Error('You must be logged in to update a document.');
     }
-    
+
     const document = await prisma.document.findUnique({
         where: { id: docId },
         select: { authorId: true },
@@ -152,7 +151,7 @@ export async function updateDocumentAction(docId: string, data: { title: string;
 
     const tagsArray = data.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
     const newSlug = slugify(data.title);
-    
+
     await prisma.document.update({
         where: { id: docId },
         data: {
@@ -176,7 +175,7 @@ export async function deleteDocumentAction(docId: string) {
     if (!userId) {
         throw new Error('You must be logged in to delete a document.');
     }
-    
+
     const document = await prisma.document.findUnique({
         where: { id: docId },
         select: { authorId: true },
@@ -323,7 +322,7 @@ export async function toggleFollowAction(authorId: string) {
                 followingId: authorId,
             },
         });
-        
+
         // Create notification
         await prisma.notification.create({
             data: {
@@ -357,7 +356,7 @@ export async function getSnippetsAction({ page = 0, limit = 3, authorId }: { pag
   try {
     const session = await auth();
     const userId = session?.user?.id;
-    
+
     const whereClause = authorId ? { authorId } : {};
 
     const snippets = await prisma.snippet.findMany({
@@ -443,7 +442,7 @@ export async function getSavedSnippetsAction({ page = 0, limit = 4, userId }: { 
       skip: page * limit,
       take: limit,
     });
-    
+
     const snippetIds = saved.map(s => s.snippetId);
 
     const snippets = await prisma.snippet.findMany({
@@ -466,7 +465,7 @@ export async function getSavedSnippetsAction({ page = 0, limit = 4, userId }: { 
         }
       }
     });
-    
+
     const totalSaved = await prisma.save.count({ where: { userId } });
     const hasMore = (page * limit) + limit < totalSaved;
 
@@ -475,7 +474,7 @@ export async function getSavedSnippetsAction({ page = 0, limit = 4, userId }: { 
       select: { snippetId: true }
     });
     const likedSnippetIds = userLikes.map(l => l.snippetId);
-    
+
     const savedSnippetIds = await prisma.save.findMany({
         where: { userId, snippetId: { in: snippetIds } },
         select: { snippetId: true }
@@ -493,7 +492,7 @@ export async function getSavedSnippetsAction({ page = 0, limit = 4, userId }: { 
       views_count: 1000, // Placeholder
       comments: snippet.comments.map(c => ({...c, author: c.author})),
     }));
-    
+
     const sortedSnippets = snippetsWithData.sort((a, b) => snippetIds.indexOf(a.id) - snippetIds.indexOf(b.id));
 
     return { snippets: sortedSnippets, hasMore };
@@ -506,7 +505,7 @@ export async function getSavedSnippetsAction({ page = 0, limit = 4, userId }: { 
 
 export async function getDocumentsAction({ query }: { query?: string }): Promise<Document[] | null> {
     try {
-        const whereClause = query ? {
+        const whereClause: Prisma.DocumentWhereInput | undefined = query ? {
             OR: [
                 { title: { contains: query, mode: 'insensitive' } },
                 { description: { contains: query, mode: 'insensitive' } },
@@ -525,7 +524,7 @@ export async function getDocumentsAction({ query }: { query?: string }): Promise
                 },
             }
         });
-        return documents.map(d => ({...d, likes_count: 0, saves_count: 0, comments_count: d.comments.length, isLiked: false, isSaved: false, comments: d.comments.map(c => ({...c, author: c.author})) }));
+        return documents.map(d => ({...d, author: d.author, likes_count: 0, saves_count: 0, comments_count: d.comments.length, isLiked: false, isSaved: false, comments: d.comments.map(c => ({...c, author: c.author})) }));
     } catch (error) {
         console.error('[getDocumentsAction Error]', error);
         return null;
@@ -603,7 +602,7 @@ export async function getDocumentBySlugAction(slug: string): Promise<FullDocumen
             isSaved = !!save;
         }
 
-        return { 
+        return {
             ...document,
             isFollowed,
             likes_count: document._count.likes,
@@ -646,7 +645,7 @@ export async function getBugsAction(): Promise<Bug[] | null> {
             });
             userUpvotes = upvotes.map(upvote => upvote.bugId);
         }
-        
+
         return bugs.map(bug => ({
             ...bug,
             author: bug.author,
@@ -735,7 +734,7 @@ export async function getUsersAction({ query }: { query?: string }): Promise<(Us
                 }
             }
         });
-        
+
         const followingIds = following.map(f => f.followingId);
 
         return users.map(user => ({
@@ -811,7 +810,7 @@ export async function createDocumentCommentAction(documentId: string, content: s
     await prisma.documentComment.create({
         data: { content, documentId, authorId: userId }
     });
-    
+
     if (userId !== doc.authorId) {
         await prisma.notification.create({
             data: {
@@ -822,7 +821,7 @@ export async function createDocumentCommentAction(documentId: string, content: s
             }
         });
     }
-    
+
     if (doc.slug) revalidatePath(`/docs/${doc.slug}`);
 }
 
@@ -858,7 +857,7 @@ export async function addSnippetCommentAction(snippetId: string, content: string
     await prisma.snippetComment.create({
         data: { content, snippetId, authorId: userId }
     });
-    
+
     if (userId !== snippet.authorId) {
         await prisma.notification.create({
             data: {
@@ -869,7 +868,7 @@ export async function addSnippetCommentAction(snippetId: string, content: string
             }
         });
     }
-    
+
     revalidatePath('/');
     revalidatePath(`/explore`);
     revalidatePath(`/profile/${snippet.authorId}`);
@@ -917,7 +916,7 @@ export async function getDocumentsByAuthorAction({ page = 0, limit = 4, authorId
 
     const totalDocs = await prisma.document.count({ where: { authorId } });
     const hasMore = (page * limit) + limit < totalDocs;
-    
+
     const docsWithData: Document[] = documents.map(doc => ({
       ...doc,
       author: doc.author,
@@ -972,7 +971,7 @@ export async function getSavedDocumentsAction({ page = 0, limit = 4, userId }: {
       isSaved: true, // It's a saved doc
       comments: []
     }));
-    
+
     const sortedDocs = docsWithData.sort((a, b) => docIds.indexOf(a.id) - docIds.indexOf(b.id));
 
     return { documents: sortedDocs, hasMore };
@@ -1083,7 +1082,7 @@ export async function updateUserProfileAction(data: { name: string; bio: string;
     if (!session?.user?.id) {
         throw new Error('You must be logged in to update your profile.');
     }
-    
+
     await prisma.user.update({
         where: { id: session.user.id },
         data: {
